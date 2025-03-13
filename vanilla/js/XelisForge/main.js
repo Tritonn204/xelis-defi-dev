@@ -3,7 +3,7 @@ import { showNotification } from './modules/ui/notifications.js';
 import { showSection } from './modules/ui/page.js';
 import { updateNavbar } from './modules/ui/navBar.js';
 import { handleMessage } from './modules/handler.js';
-import { createToken, mintTokens, transferOwnership, deployContract } from './modules/transactions.js';
+import { setWebSocketInstance, createToken, mintTokens, transferOwnership, deployContract } from './modules/transactions.js';
 
 window.dapp = {
     showSection,
@@ -20,6 +20,8 @@ window.dapp = {
 const websocketUrl = "ws://localhost:44325/xswd";
 let ws = null;
 let connectionFailed = false; // Prevents duplicate error/disconnect messages
+
+const contract = "391d67a4cc6a8e73e51a4c12b4f673f8df9be3855db7bcb0468fb1aab406ab31";
 
 // Connect/Disconnect Wallet function
 function toggleWalletConnection() {
@@ -38,6 +40,7 @@ function toggleWalletConnection() {
 
     ws.onopen = () => {
         console.log("Connected to WebSocket.");
+        setWebSocketInstance(ws);
         ws.onmessage = handleMessage;
 
         // Prepare ApplicationData message
@@ -63,7 +66,7 @@ function toggleWalletConnection() {
     ws.onclose = () => {
         console.log("Connection closed.");
         resetButton();
-
+        setWebSocketInstance(null);
         if (!connectionFailed) { // Only show disconnect message if there was no prior error
             showNotification("Wallet disconnected.", "info");
         }
