@@ -1,0 +1,319 @@
+body {
+	font-family: Arial, sans-serif;
+	background-color: #2c2f33;
+	color: #ffffff;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 80vh;
+	padding-top: 80px;
+	margin: 0;
+	overflow-x: hidden;
+}
+.container {
+	background-color: #1e2226;
+	padding: 20px;
+	border-radius: 10px;
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+	width: 400px;
+}
+
+h1 {
+	text-align: center;
+	margin-top: 5px;
+	margin-bottom: 25px;
+	font-size: 24px;
+}
+h3 {
+	text-align: center;
+	margin-bottom: 20px;
+	font-size: 18px;
+}
+.table {
+	width: 100%;
+	border-collapse: collapse;
+}
+th, td {
+	padding: 10px;
+	text-align: left;
+}
+th {
+	background-color: #2c2f33;
+	color: #ffffff;
+	font-weight: normal;
+}
+td {
+	background-color: #23272a;
+	color: #ffffff;
+}
+
+.input-container {
+	display: flex;
+	justify-content: center;
+	gap: 10px;
+	margin-bottom: 20px;
+}
+.input-container input, .input-container select, .input-container textarea {
+	padding: 5px;
+	border-radius: 5px;
+	border: 1px solid #ffffff;
+	background-color: #2c2f33;
+	color: #ffffff;
+}
+.input-container input, .input-container select {
+	width: 45%;
+}
+.input-container input {
+	text-align: center;
+}
+/* Checkbox styling */
+.checkbox-container {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin-bottom: 20px;
+}
+.check-container {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+.check-container input[type="checkbox"] {
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	border: 2px solid #ffffff;
+	border-radius: 4px;
+	background-color: #2c2f33;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	position: relative;
+	transition: background-color 0.2s, border-color 0.2s;
+}
+.check-container input[type="checkbox"]::after {
+	font-size: 14px;
+	color: #ffffff;
+	position: absolute;
+	display: none;
+}
+.check-container input[type="checkbox"]:checked {
+	background-color: #7289da;
+	border-color: #7289da;
+}
+.check-container input[type="checkbox"]:checked::after {
+	display: block;
+}
+.check-container input[type="checkbox"]:hover {
+	border-color: #7289da;
+}
+.check-container label {
+	font-size: 16px;
+}
+button {
+	background-color: #2c2f33;
+	color: #ffffff;
+	border: 1px solid #ffffff;
+	padding: 10px 15px;
+	border-radius: 5px;
+	font-size: 16px;
+	cursor: pointer;
+	transition: background-color 0.3s, transform 0.2s;
+}
+button:hover {
+	background-color: #3a3d41;
+	transform: scale(1.05);
+}
+button:active {
+	background-color: #23272a;
+	transform: scale(0.95);
+}
+input:focus, select:focus, textarea:focus, button:focus {
+	outline: none;
+	box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+}
+
+/* Navbar Styles */
+.navbar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 80px;
+	background-color: #000;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0 20px;
+	box-sizing: border-box;
+	overflow: hidden;
+	white-space: nowrap;
+}
+.navbar-logo {
+	color: #ffffff;
+	font-size: 20px;
+	font-weight: bold;
+	white-space: wrap;
+}
+.nav-button {
+    background-color: #2c2f33;
+    color: #ffffff;
+    border: 1px solid #ffffff;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.nav-button:hover {
+    background-color: #3a3d41;
+    transform: scale(1.05);
+}
+
+.nav-button:active {
+    background-color: #23272a;
+    transform: scale(0.95);
+}
+
+.nav-button.active {
+    background-color: #007BFF;
+    border-color: #0056b3;
+}
+
+.navbar-links {
+    display: flex;
+    gap: 10px;
+    padding: 10px 15px;
+    overflow: hidden;
+    flex-wrap: nowrap;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Dropdown selector (hidden by default) */
+.nav-dropdown {
+    display: none;
+    background-color: #2c2f33;
+    color: white;
+    border: 1px solid white;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+/* Dropdown menu styles */
+.nav-dropdown select {
+    background-color: #2c2f33;
+    color: white;
+    border: none;
+    padding: 10px;
+    font-size: 16px;
+}
+
+/* Ensure dropdown is visible when needed */
+.nav-dropdown.show {
+    display: block;
+}
+
+/* Wallet Button */
+.wallet-button {
+	display: flex;
+	align-items: center;
+	background-color: #000;
+	color: #ffffff;
+	border: 2px solid #ffffff;
+	padding: 10px 20px;
+	border-radius: 25px;
+	font-size: 16px;
+	font-weight: bold;
+	cursor: pointer;
+	transition: background-color 0.3s, transform 0.2s;
+}
+.wallet-button:hover {
+	background-color: #222;
+	transform: scale(1.05);
+}
+.wallet-button:active {
+	transform: scale(0.95);
+}
+
+/* Notification Container */
+#notificationContainer {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; 
+    z-index: 1000;
+    align-items: flex-end;
+    pointer-events: none;
+}
+
+/* Individual Notification */
+.notification {
+    padding: 12px;
+    border-radius: 6px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 14px;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out, transform 0.3s ease-in-out;
+    box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease-in-out;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: auto;
+}
+
+/* Notification Types */
+.notification.info {
+    background-color: #007bff;
+}
+
+.notification.success {
+    background-color: #28a745;
+}
+
+.notification.error {
+    background-color: #dc3545;
+}
+
+/* Close Button */
+.notification .close-btn {
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    margin-left: 10px;
+    background: none;
+    border: none;
+    color: white;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.notification .close-btn:hover {
+    opacity: 0.7;
+}
+
+/* Fade-out Animation */
+.notification.fade-out {
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+/* Slide-in Animation */
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

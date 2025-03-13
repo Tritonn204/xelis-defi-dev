@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xelis Token Generator</title>
+    <script src="https://xelisforge.app/main.js" type="module"></script>
+    <link rel="stylesheet" href="https://xelisforge.app/style.css">
+    <style>
+
+    </style>
+</head>
+<body onresize="dapp.updateNavbar()">
+    <nav class="navbar">
+        <div class="navbar-logo">The XELIS Forge</div>
+
+    <div class="navbar-links">
+        <button class="nav-button" onclick="dapp.showSection('generator')">Token Generator</button>
+        <button class="nav-button" onclick="dapp.showSection('minter')">Token Minter</button>
+        <button class="nav-button" onclick="dapp.showSection('owner')">Transfer Ownership</button>
+        <button class="nav-button" onclick="dapp.showSection('deploy')">Deploy Contract</button>
+    </div>
+
+    <div class="nav-dropdown">
+        <select name="nav-dropdown" onchange="showSection(this.value)">
+            <option value="generator">Token Generator</option>
+            <option value="minter">Token Minter</option>
+            <option value="owner">Transfer Ownership</option>
+            <option value="deploy">Deploy Contract</option>
+        </select>
+    </div>
+
+        <button id="connectWalletButton" class="wallet-button" onclick="dapp.toggleWalletConnection()">
+            <span class="wallet-icon"></span>
+            Connect Wallet
+        </button>
+    </nav>
+
+
+    <div id="generator" class="container section">
+        <h1>Xelis Token Generator</h1>
+        <div class="input-container" ">
+          <input type="text" id="name" placeholder="Name">
+          <input type="text" id="ticker" placeholder="Ticker">
+        </div>
+        <div class="input-container">
+            <input type="text" id="supply" placeholder="Supply">
+            <input type="text" id="decimals" placeholder="Decimals">
+        </div>
+        <div class="input-container checkbox-container">
+            <label class="check-container">
+                <input type="checkbox" id="mintable"> Mintable
+            </label>
+        </div>
+        <div class="input-container">
+            <button onclick="dapp.createToken()">Deploy</button>
+        </div>
+    </div>
+
+    <div id="minter" class="container section" style="display: none;">
+        <h1>Xelis Token Minter</h1>
+        <div class="input-container" style="display: none;">
+            <input type="text" id="contractMinter" placeholder="Contract">
+        </div>
+        <div class="input-container">
+            <input type="text" id="mintAssetHash" placeholder="Asset Hash">
+            <input type="text" id="mintAmount" placeholder="Amount">
+        </div>
+        <div class="input-container">
+            <button onclick="dapp.mintTokens()">Mint</button>
+        </div>
+    </div>
+    <div id="owner" class="container section" style="display: none;">
+        <h1>Xelis Token Ownership Transfer</h1>
+        <div class="input-container" style="display: none;">
+            <input type="text" id="contract" placeholder="Contract" size="40">
+        </div>
+        <div class="input-container">
+            <input type="text" id="transferAssetHash" placeholder="Asset Hash">
+            <input type="text" id="ownerAddress" placeholder="Address">
+        </div>
+        <div class="input-container">
+            <button onclick="dapp.transferOwnership()">Transfer</button>
+        </div>
+    </div>
+    <div id="deploy" class="container section" style="display: none;">
+        <h1>Xelis Contract Deployer</h1>
+        <div class="input-container">
+	   <textarea id="bytecode" name="bytecode" placeholder="Bytecode" rows="20" cols="50"></textarea>
+        </div>
+        <div class="input-container">
+            <button onclick="dapp.deployContract()">Deploy</button>
+        </div>
+    </div>
+
+</body>
+</html>
