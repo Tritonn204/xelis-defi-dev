@@ -7,6 +7,8 @@ export function setWebSocketInstance(wsInstance) {
     ws = wsInstance;
 }
 
+const contract = "b1f3b3aa5a3bc4102518a6b872d231adf28fa6adb6b99f3e5da409455c13f66f";
+
 // Create Token
 export async function createToken() {
     const name = document.getElementById("name").value;
