@@ -29,9 +29,9 @@ entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mint
     let asset_id: u64 = new_asset_id();
     let owner: Address = transaction().source();
     if mintable {
-    	asset = assetManager.create(asset_id, name, ticker, decimals, null);
+        asset = assetManager.create(asset_id, name, ticker, decimals, null);
     } else {
-    	asset = assetManager.create(asset_id, name, ticker, decimals, supply);
+        asset = assetManager.create(asset_id, name, ticker, decimals, supply);
     }
     if asset.is_none() { return 1; } // asset not created
     let asset: Asset = asset.unwrap();
@@ -50,7 +50,7 @@ entry mint(asset_hash: Hash, amount: u64) {
     let source: Address = transaction().source();
     if (source != casset.owner.unwrap()) { return 2; } // not asset owner
     if !casset.mintable { return 3; } // asset not mintable
-	let asset: Asset = asset_manager().get_by_id(casset.asset_id).unwrap();
+    let asset: Asset = asset_manager().get_by_id(casset.asset_id).unwrap();
     if ((asset.get_supply() + amount) > casset.max_supply) { return 4; } // Mint would be over max supply
     asset.mint(amount);
     transfer(source, amount, asset.get_hash());
