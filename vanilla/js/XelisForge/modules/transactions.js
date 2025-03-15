@@ -7,15 +7,19 @@ export function setWebSocketInstance(wsInstance) {
     ws = wsInstance;
 }
 
-const contract = "b1f3b3aa5a3bc4102518a6b872d231adf28fa6adb6b99f3e5da409455c13f66f";
+const contract = "f0788407550d200b6b65cf3df311831d746218489dca18b6c3d066655b4a1753";
 
 // Create Token
 export async function createToken() {
     const name = document.getElementById("name").value;
     const ticker = document.getElementById("ticker").value;
     const decimals = Number(document.getElementById("decimals").value);
-    const supply = Number(document.getElementById("supply").value) * 10 ** decimals;
+    const supply = BigInt(document.getElementById("supply").value) * 10 ** decimals;
     const mintable = document.getElementById("mintable").checked;
+    const maxSupply = Number(document.getElementById("maxSupply").value) === 0
+        ? BigInt("18446744073709551615") // Max value for u64
+        : BigInt(BigInt(document.getElementById("maxSupply").value) * 10 ** decimals);
+
 
     const params = {
         invoke_contract: {
@@ -27,7 +31,8 @@ export async function createToken() {
                 { type: "default", value: { type: "string", value: ticker } },
                 { type: "default", value: { type: "u64", value: supply } },
                 { type: "default", value: { type: "u8", value: decimals } },
-                { type: "default", value: { type: "boolean", value: mintable } }
+                { type: "default", value: { type: "boolean", value: mintable } },
+                { type: "default", value: { type: "u64", value: maxSupply } }
             ]
         },
         broadcast: true
@@ -67,8 +72,8 @@ export async function mintTokens() {
 
 // Transfer Ownership
 export async function transferOwnership() {
-    const AssetHash = document.getElementById("transferAssetHash").value;
-    const address = Number(document.getElementById("ownerAddress").value);
+    const assetHash = document.getElementById("transferAssetHash").value;
+    const address = document.getElementById("ownerAddress").value;
 
     const params = {
         invoke_contract: {
@@ -76,8 +81,8 @@ export async function transferOwnership() {
             max_gas: 200000000,
             chunk_id: 2,
             parameters: [
-                { type: "default", value: { type: "opaque", value: { type: "Hash", value: AssetHash } } },
-                { type: "default", value: { type: "u64", value: address } }
+                { type: "default", value: { type: "opaque", value: { type: "Hash", value: assetHash } } },
+                { type: "default", value: { type: "opaque", value: { type: "Address", value: address } } }
             ]
         },
         broadcast: true

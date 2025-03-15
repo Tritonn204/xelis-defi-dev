@@ -21,6 +21,8 @@ const websocketUrl = "ws://localhost:44325/xswd";
 let ws = null;
 let connectionFailed = false; // Prevents duplicate error/disconnect messages
 
+
+
 // Connect/Disconnect Wallet function
 function toggleWalletConnection() {
     const connectButton = document.getElementById("connectWalletButton");

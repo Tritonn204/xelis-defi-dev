@@ -15,3 +15,18 @@ document.addEventListener("DOMContentLoaded", () => {
     showSection('generator');
     updateNavbar();
 });
+
+document.getElementById('mintable').addEventListener('change', function() {
+    document.getElementById('maxSupply').style.display = this.checked ? 'flex' : 'none';
+});
+
+const nameInput = document.getElementById("name");
+const tickerInput = document.getElementById("ticker");
+
+nameInput.addEventListener("input", function () {
+    this.value = this.value.replace(/[^A-Z0-9]/g, "");
+});
+
+tickerInput.addEventListener("input", function () {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+});

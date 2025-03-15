@@ -18,6 +18,7 @@ export function sendRPCCall(ws, method, params = {}) {
                 params
             }) // Conditionally add params
         };
+        console.log("Sent message:", requestData);
         ws.send(JSON.stringify(requestData));
 
         setTimeout(() => {
