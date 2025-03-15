@@ -7,19 +7,26 @@ struct CAsset{
 
 fn charge(cost: u64, asset: Hash) {
     let deposit: u64 = get_deposit_for_asset(asset).unwrap();
-    if deposit < cost{ return 5; }
+    if deposit < cost { panic("Deposit too low.") }
     let change: u64 = deposit - cost;
     transfer(transaction().source(), change, asset);
 }
 
+fn new_asset_id() -> u64 {
+    let storage: Storage = storage();
+    let asset_id: u64 = storage.load("last_asset_id").unwrap() + 1;
+    storage.store("last_asset_id", asset_id);
+    return asset_id;
+}
+
 entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mintable: bool, max_supply: u64) {
     let storage: Storage = storage();
-    let xelis: Hash = from_hex("0000000000000000000000000000000000000000000000000000000000000000");
+    let xelis: Hash = Hash::zero();
     let fee: u64 = storage.load("fee").unwrap();
     charge(fee, xelis);
     let assetManager: AssetManager = asset_manager();
     let asset: optional<Asset> = null;
-    let asset_id: u64 = random().next_u64();
+    let asset_id: u64 = new_asset_id();
     let owner: Address = transaction().source();
     if mintable {
     	asset = assetManager.create(asset_id, name, ticker, decimals, null);
@@ -77,6 +84,7 @@ entry set_fee(new_fee: u64) {
 entry constructor() {
 	let storage: Storage = storage();
 	if storage.load("owner").is_some() { return 100;}
+    storage.store("last_asset_id", 0);
 	storage.store("owner", transaction().source());
 	storage.store("fee", 1 * 10 ^ 8);
 }
