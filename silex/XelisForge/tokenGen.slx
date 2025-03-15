@@ -82,9 +82,9 @@ entry set_fee(new_fee: u64) {
 }
 
 entry constructor() {
-	let storage: Storage = storage();
-	if storage.load("owner").is_some() { return 100;}
+    storage: Storage = storage();
+    if storage.load("owner").is_some() { return 100;}
     storage.store("last_asset_id", 0);
-	storage.store("owner", transaction().source());
-	storage.store("fee", 1 * 10 ^ 8);
+    storage.store("owner", transaction().source());
+    storage.store("fee", 1 * 10 ^ 8);
 }
