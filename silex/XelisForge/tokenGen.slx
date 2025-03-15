@@ -36,7 +36,7 @@ entry mint(asset_hash: Hash, amount: u64) {
     let source: Address = transaction().source();
     if (source != casset.owner.unwrap()) { return 2; } // not asset owner
     if !casset.mintable { return 3; } // asset not mintable
-	let asset: Asset = asset_manager().get_by_id(casset.asset_id).unwrap();
+    let asset: Asset = asset_manager().get_by_id(casset.asset_id).unwrap();
     if ((asset.get_supply() + amount) > casset.max_supply) { return 4; } // Mint would be over max supply
     asset.mint(amount);
     transfer(source, amount, asset.get_hash());
