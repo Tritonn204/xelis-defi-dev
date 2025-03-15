@@ -6,10 +6,10 @@ struct CAsset{
 }
 
 fn charge(cost: u64, asset: Hash) {
-    let deposit: u64 = get_deposit_for_asset(xelis).unwrap();
+    let deposit: u64 = get_deposit_for_asset(asset).unwrap();
     if deposit < cost{ return 5; }
     let change: u64 = deposit - cost;
-    transfer(transaction().source(), change, xelis);
+    transfer(transaction().source(), change, asset);
 }
 
 entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mintable: bool, max_supply: u64) {
