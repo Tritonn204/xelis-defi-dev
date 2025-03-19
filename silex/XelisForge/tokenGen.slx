@@ -7,9 +7,12 @@ struct CAsset{
 
 fn charge(cost: u64, asset: Hash) {
     let deposit: u64 = get_deposit_for_asset(asset).unwrap();
-    if deposit < cost { panic("Deposit too low.") }
-    let change: u64 = deposit - cost;
-    transfer(Transaction::current().source(), change, asset);
+	require(cost <= deposit, "Deposit too low.");
+    if deposit > cost {
+        let change: u64 = deposit - cost;
+	    transfer(Transaction::current().source(), change, asset);
+    }
+    transfer(Storage::new().load("owner"), cost, asset);
 }
 
 fn new_asset_id() -> u64 {
@@ -33,7 +36,7 @@ entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mint
     } else {
         asset = Asset::create(asset_id, name, ticker, decimals, supply);
     }
-    if asset.is_none() { return 1; } // asset not created
+	require(asset.is_some(), "Asset not created.");
     let asset: Asset = asset.unwrap();
     if mintable {
         asset.mint(supply);
@@ -48,10 +51,10 @@ entry mint(asset_hash: Hash, amount: u64) {
     let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
     let source: Address = Transaction::current().source();
-    if (source != casset.owner.unwrap()) { return 2; } // not asset owner
-    if !casset.mintable { return 3; } // asset not mintable
+    require(source == casset.owner.unwrap(), "Not asset owner.");
+    require(casset.mintable, "Asset not mintable.");
     let asset: Asset = Asset::get_by_id(casset.asset_id).unwrap();
-    if ((asset.get_supply() + amount) > casset.max_supply) { return 4; } // Mint would be over max supply
+    require((asset.get_supply() + amount) <= casset.max_supply, "Mint would be over max supply."); 
     asset.mint(amount);
     transfer(source, amount, asset.get_hash());
     return 0;
@@ -60,7 +63,7 @@ entry mint(asset_hash: Hash, amount: u64) {
 entry transfer_ownership(asset_hash: Hash, new_owner: Address) {
     let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
-    if Transaction::current().source() != casset.owner.unwrap() { return 2; }
+    require(Transaction::current().source() == casset.owner.unwrap(), "Not asset owner.");
     casset.owner = new_owner;
     storage.store(asset_hash, casset);
     return 0;
@@ -69,7 +72,7 @@ entry transfer_ownership(asset_hash: Hash, new_owner: Address) {
 entry renounce_ownership(asset_hash: Hash, new_owner: Address) {
     let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
-    if Transaction::current().source() != casset.owner.unwrap() { return 2; }
+    require(Transaction::current().source() == casset.owner.unwrap(), "Not asset owner.");
     casset.owner = null;
     storage.store(asset_hash, casset);
     return 0;
@@ -78,14 +81,14 @@ entry renounce_ownership(asset_hash: Hash, new_owner: Address) {
 entry set_fee(new_fee: u64) {
     let storage: Storage = Storage::new();
     let owner: Address = Storage::new().load("owner").unwrap();
-    if Transaction::current().source() != owner { return 100; }
+    require(Transaction::current().source() == owner, "Not contract owner.");
     storage.store("fee", new_fee);
     return 0;
 }
 
 entry constructor() {
     let storage: Storage = Storage::new();
-    if storage.load("owner").is_some() { return 100;}
+	require(storage.load("owner").is_none(), "Constructor already ran.")
     storage.store("last_asset_id", 0);
     storage.store("owner", Transaction::current().source());
     storage.store("fee", 1 * 10 ^ 8);
