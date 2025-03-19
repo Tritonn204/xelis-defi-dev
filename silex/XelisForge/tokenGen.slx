@@ -9,11 +9,11 @@ fn charge(cost: u64, asset: Hash) {
     let deposit: u64 = get_deposit_for_asset(asset).unwrap();
     if deposit < cost { panic("Deposit too low.") }
     let change: u64 = deposit - cost;
-    transfer(transaction().source(), change, asset);
+    transfer(Transaction::current().source(), change, asset);
 }
 
 fn new_asset_id() -> u64 {
-    let storage: Storage = storage();
+    let storage: Storage = Storage::new();
     let asset_id: u64 = storage.load("last_asset_id").unwrap();
     asset_id = asset_id + 1;
     storage.store("last_asset_id", asset_id);
@@ -21,18 +21,17 @@ fn new_asset_id() -> u64 {
 }
 
 entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mintable: bool, max_supply: u64) {
-    let storage: Storage = storage();
+    let storage: Storage = Storage::new();
     let xelis: Hash = Hash::zero();
     let fee: u64 = storage.load("fee").unwrap();
     charge(fee, xelis);
-    let assetManager: AssetManager = asset_manager();
     let asset: optional<Asset> = null;
     let asset_id: u64 = new_asset_id();
-    let owner: Address = transaction().source();
+    let owner: Address = Transaction::current().source();
     if mintable {
-        asset = assetManager.create(asset_id, name, ticker, decimals, null);
+        asset = Asset::create(asset_id, name, ticker, decimals, null);
     } else {
-        asset = assetManager.create(asset_id, name, ticker, decimals, supply);
+        asset = Asset::create(asset_id, name, ticker, decimals, supply);
     }
     if asset.is_none() { return 1; } // asset not created
     let asset: Asset = asset.unwrap();
@@ -46,12 +45,12 @@ entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mint
 }
 
 entry mint(asset_hash: Hash, amount: u64) {
-    let storage: Storage = storage();
+    let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
-    let source: Address = transaction().source();
+    let source: Address = Transaction::current().source();
     if (source != casset.owner.unwrap()) { return 2; } // not asset owner
     if !casset.mintable { return 3; } // asset not mintable
-    let asset: Asset = asset_manager().get_by_id(casset.asset_id).unwrap();
+    let asset: Asset = Asset::get_by_id(casset.asset_id).unwrap();
     if ((asset.get_supply() + amount) > casset.max_supply) { return 4; } // Mint would be over max supply
     asset.mint(amount);
     transfer(source, amount, asset.get_hash());
@@ -59,36 +58,36 @@ entry mint(asset_hash: Hash, amount: u64) {
 }
 
 entry transfer_ownership(asset_hash: Hash, new_owner: Address) {
-    let storage: Storage = storage();
+    let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
-    if transaction().source() != casset.owner.unwrap() { return 2; }
+    if Transaction::current().source() != casset.owner.unwrap() { return 2; }
     casset.owner = new_owner;
     storage.store(asset_hash, casset);
     return 0;
 }
 
 entry renounce_ownership(asset_hash: Hash, new_owner: Address) {
-    let storage: Storage = storage();
+    let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
-    if transaction().source() != casset.owner.unwrap() { return 2; }
+    if Transaction::current().source() != casset.owner.unwrap() { return 2; }
     casset.owner = null;
     storage.store(asset_hash, casset);
     return 0;
 }
 
 entry set_fee(new_fee: u64) {
-    let storage: Storage = storage();
-    let owner: Address = storage().load("owner").unwrap();
-    if transaction().source() != owner { return 100; }
+    let storage: Storage = Storage::new();
+    let owner: Address = Storage::new().load("owner").unwrap();
+    if Transaction::current().source() != owner { return 100; }
     storage.store("fee", new_fee);
     return 0;
 }
 
 entry constructor() {
-    let storage: Storage = storage();
+    let storage: Storage = Storage::new();
     if storage.load("owner").is_some() { return 100;}
     storage.store("last_asset_id", 0);
-    storage.store("owner", transaction().source());
+    storage.store("owner", Transaction::current().source());
     storage.store("fee", 1 * 10 ^ 8);
     return 0;
 }
