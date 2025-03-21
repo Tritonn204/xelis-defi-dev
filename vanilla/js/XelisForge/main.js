@@ -49,8 +49,7 @@ function toggleWalletConnection() {
             name: "XELIS Forge",
             description: "Deploy and manage your own XELIS Tokens!",
             url: "https://xelisforge.app",
-            permissions: {},
-            signature: null
+            permissions: ["build_transaction"]
         };
 
         ws.send(JSON.stringify(applicationData));

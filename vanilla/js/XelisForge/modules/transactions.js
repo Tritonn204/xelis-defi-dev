@@ -14,18 +14,15 @@ export async function createToken() {
     const name = document.getElementById("name").value;
     const ticker = document.getElementById("ticker").value;
     const decimals = Number(document.getElementById("decimals").value);
-    const supply = BigInt(document.getElementById("supply").value) * 10 ** decimals;
+    const supply = Number(document.getElementById("supply").value) * 10 ** decimals;
     const mintable = document.getElementById("mintable").checked;
-    const maxSupply = Number(document.getElementById("maxSupply").value) === 0
-        ? BigInt("18446744073709551615") // Max value for u64
-        : BigInt(BigInt(document.getElementById("maxSupply").value) * 10 ** decimals);
-
+    const maxSupply = Number(document.getElementById("maxSupply").value * 10 ** decimals)
 
     const params = {
         invoke_contract: {
             contract: contract,
             max_gas: 200000000,
-            chunk_id: 0,
+            chunk_id: 2,
             parameters: [
                 { type: "default", value: { type: "string", value: name } },
                 { type: "default", value: { type: "string", value: ticker } },
@@ -54,7 +51,7 @@ export async function mintTokens() {
         invoke_contract: {
             contract: contract,
             max_gas: 200000000,
-            chunk_id: 1,
+            chunk_id: 3,
             parameters: [
                 { type: "default", value: { type: "opaque", value: { type: "Hash", value: AssetHash } } },
                 { type: "default", value: { type: "u64", value: mintAmount } }
@@ -79,10 +76,33 @@ export async function transferOwnership() {
         invoke_contract: {
             contract: contract,
             max_gas: 200000000,
-            chunk_id: 2,
+            chunk_id: 4,
             parameters: [
                 { type: "default", value: { type: "opaque", value: { type: "Hash", value: assetHash } } },
                 { type: "default", value: { type: "opaque", value: { type: "Address", value: address } } }
+            ]
+        },
+        broadcast: true
+    };
+    
+    showNotification("Transaction sent, approve in wallet.", "info");
+    const transactionData = await sendRPCCall(ws, "wallet.build_transaction", params);
+    if (transactionData.hash) {
+        showNotification(`TX Hash: ${transactionData.hash}`, "success", 8000);
+    }
+}
+
+// Renounce Ownership
+export async function renounceOwnership() {
+    const assetHash = document.getElementById("renounceAssetHash").value;
+
+    const params = {
+        invoke_contract: {
+            contract: contract,
+            max_gas: 200000000,
+            chunk_id: 5,
+            parameters: [
+                { type: "default", value: { type: "opaque", value: { type: "Hash", value: assetHash } } }
             ]
         },
         broadcast: true
@@ -100,7 +120,7 @@ export async function deployContract() {
     const bytecode = document.getElementById("bytecode").value;
 
     const params = {
-        deploy_contract: bytecode,
+        deploy_contract: { module: bytecode },
         broadcast: true
     };
     

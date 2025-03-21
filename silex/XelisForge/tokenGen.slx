@@ -12,7 +12,7 @@ fn charge(cost: u64, asset: Hash) {
         let change: u64 = deposit - cost;
 	    transfer(Transaction::current().source(), change, asset);
     }
-    transfer(Storage::new().load("owner"), cost, asset);
+    transfer(Storage::new().load("owner").unwrap(), cost, asset);
 }
 
 fn new_asset_id() -> u64 {
@@ -23,7 +23,7 @@ fn new_asset_id() -> u64 {
     return asset_id;
 }
 
-entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mintable: bool, max_supply: u64) {
+entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mintable: bool, _max_supply: u64) {
     let storage: Storage = Storage::new();
     let xelis: Hash = Hash::zero();
     let fee: u64 = storage.load("fee").unwrap();
@@ -31,10 +31,14 @@ entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mint
     let asset: optional<Asset> = null;
     let asset_id: u64 = new_asset_id();
     let owner: Address = Transaction::current().source();
+	let max_supply: u64 = 0;
     if mintable {
         asset = Asset::create(asset_id, name, ticker, decimals, null);
+        // max_supply = (_max_supply == 0) ? 18446744073709551614 : max_supply;
+        if _max_supply == 0 { max_supply = 18446744073709551614; } else { max_supply = _max_supply; }
     } else {
         asset = Asset::create(asset_id, name, ticker, decimals, supply);
+		max_supply = supply;
     }
 	require(asset.is_some(), "Asset not created.");
     let asset: Asset = asset.unwrap();
