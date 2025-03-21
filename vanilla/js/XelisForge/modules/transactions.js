@@ -7,7 +7,7 @@ export function setWebSocketInstance(wsInstance) {
     ws = wsInstance;
 }
 
-const contract = "f0788407550d200b6b65cf3df311831d746218489dca18b6c3d066655b4a1753";
+const contract = "6f9910e6a993540e944821d955388d3714bdafd490de9b1e2f0eb927cdbdf490";
 
 // Create Token
 export async function createToken() {
@@ -23,6 +23,11 @@ export async function createToken() {
             contract: contract,
             max_gas: 200000000,
             chunk_id: 2,
+            deposits: {
+                "0000000000000000000000000000000000000000000000000000000000000000": {
+                    "amount": 100000000
+                }
+            },
             parameters: [
                 { type: "default", value: { type: "string", value: name } },
                 { type: "default", value: { type: "string", value: ticker } },

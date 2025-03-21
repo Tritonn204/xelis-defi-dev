@@ -7,7 +7,7 @@ struct CAsset{
 
 fn charge(cost: u64, asset: Hash) {
     let deposit: u64 = get_deposit_for_asset(asset).unwrap();
-	require(cost <= deposit, "Deposit too low.");
+	require(cost <= deposit, "DepositTooLow");
     if deposit > cost {
         let change: u64 = deposit - cost;
 	    transfer(Transaction::current().source(), change, asset);
@@ -25,8 +25,8 @@ fn new_asset_id() -> u64 {
 
 entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mintable: bool, _max_supply: u64) {
     let storage: Storage = Storage::new();
-    let xelis: Hash = Hash::zero();
     let fee: u64 = storage.load("fee").unwrap();
+    let xelis: Hash = Hash::zero();
     charge(fee, xelis);
     let asset: optional<Asset> = null;
     let asset_id: u64 = new_asset_id();
@@ -34,13 +34,13 @@ entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mint
 	let max_supply: u64 = 0;
     if mintable {
         asset = Asset::create(asset_id, name, ticker, decimals, null);
-        // max_supply = (_max_supply == 0) ? 18446744073709551614 : max_supply;
+        //max_supply = (_max_supply == 0) ? 18446744073709551614 : _max_supply;
         if _max_supply == 0 { max_supply = 18446744073709551614; } else { max_supply = _max_supply; }
     } else {
         asset = Asset::create(asset_id, name, ticker, decimals, supply);
 		max_supply = supply;
     }
-	require(asset.is_some(), "Asset not created.");
+	require(asset.is_some(), "AssetNotCreated");
     let asset: Asset = asset.unwrap();
     if mintable {
         asset.mint(supply);
@@ -55,10 +55,10 @@ entry mint(asset_hash: Hash, amount: u64) {
     let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
     let source: Address = Transaction::current().source();
-    require(source == casset.owner.unwrap(), "Not asset owner.");
-    require(casset.mintable, "Asset not mintable.");
+    require(source == casset.owner.unwrap(), "NotAssetOwner");
+    require(casset.mintable, "AssetNotMintable");
     let asset: Asset = Asset::get_by_id(casset.asset_id).unwrap();
-    require((asset.get_supply() + amount) <= casset.max_supply, "Mint would be over max supply."); 
+    require((asset.get_supply() + amount) <= casset.max_supply, "MintOverMax"); 
     asset.mint(amount);
     transfer(source, amount, asset.get_hash());
     return 0;
@@ -67,7 +67,7 @@ entry mint(asset_hash: Hash, amount: u64) {
 entry transfer_ownership(asset_hash: Hash, new_owner: Address) {
     let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
-    require(Transaction::current().source() == casset.owner.unwrap(), "Not asset owner.");
+    require(Transaction::current().source() == casset.owner.unwrap(), "NotAssetOwner");
     casset.owner = new_owner;
     storage.store(asset_hash, casset);
     return 0;
@@ -76,7 +76,7 @@ entry transfer_ownership(asset_hash: Hash, new_owner: Address) {
 entry renounce_ownership(asset_hash: Hash, new_owner: Address) {
     let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
-    require(Transaction::current().source() == casset.owner.unwrap(), "Not asset owner.");
+    require(Transaction::current().source() == casset.owner.unwrap(), "NotAssetOwner");
     casset.owner = null;
     storage.store(asset_hash, casset);
     return 0;
@@ -85,16 +85,16 @@ entry renounce_ownership(asset_hash: Hash, new_owner: Address) {
 entry set_fee(new_fee: u64) {
     let storage: Storage = Storage::new();
     let owner: Address = Storage::new().load("owner").unwrap();
-    require(Transaction::current().source() == owner, "Not contract owner.");
+    require(Transaction::current().source() == owner, "NotContractOwner");
     storage.store("fee", new_fee);
     return 0;
 }
 
 entry constructor() {
     let storage: Storage = Storage::new();
-	require(storage.load("owner").is_none(), "Constructor already ran.")
+	require(storage.load("owner").is_none(), "ConstructorAlreadyRan")
     storage.store("last_asset_id", 0);
     storage.store("owner", Transaction::current().source());
-    storage.store("fee", 1 * 10 ^ 8);
+    storage.store("fee", 100000000);
     return 0;
 }
