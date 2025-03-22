@@ -73,7 +73,7 @@ entry transfer_ownership(asset_hash: Hash, new_owner: Address) {
     return 0;
 }
 
-entry renounce_ownership(asset_hash: Hash, new_owner: Address) {
+entry renounce_ownership(asset_hash: Hash) {
     let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(asset_hash).unwrap();
     require(Transaction::current().source() == casset.owner.unwrap(), "NotAssetOwner");
