@@ -72,8 +72,17 @@ export async function mintTokens() {
     }
 }
 
+// Manage Ownership
+export async function ownership() {
+    if document.getElementById('renounce').checked {
+        renounceOwnership();
+    } else {
+        transferOwnership();
+    }
+}
+
 // Transfer Ownership
-export async function transferOwnership() {
+async function transferOwnership() {
     const assetHash = document.getElementById("transferAssetHash").value;
     const address = document.getElementById("ownerAddress").value;
 
@@ -98,8 +107,8 @@ export async function transferOwnership() {
 }
 
 // Renounce Ownership
-export async function renounceOwnership() {
-    const assetHash = document.getElementById("renounceAssetHash").value;
+async function renounceOwnership() {
+    const assetHash = document.getElementById("transferAssetHash").value;
 
     const params = {
         invoke_contract: {

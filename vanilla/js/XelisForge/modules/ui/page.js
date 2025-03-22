@@ -20,12 +20,11 @@ document.getElementById('mintable').addEventListener('change', function() {
     document.getElementById('maxSupply').style.display = this.checked ? 'flex' : 'none';
 });
 
-const nameInput = document.getElementById("name");
-const tickerInput = document.getElementById("ticker");
-
-nameInput.addEventListener("input", function () {
-    this.value = this.value.replace(/[^A-Z0-9]/g, "");
+document.getElementById('renounce').addEventListener('change', function() {
+    document.getElementById('ownerAddress').style.display = this.checked ? 'none' : 'flex';
 });
+
+const tickerInput = document.getElementById("ticker");
 
 tickerInput.addEventListener("input", function () {
     this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);

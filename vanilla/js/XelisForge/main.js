@@ -3,7 +3,7 @@ import { showNotification } from './modules/ui/notifications.js';
 import { showSection } from './modules/ui/page.js';
 import { updateNavbar } from './modules/ui/navBar.js';
 import { handleMessage } from './modules/handler.js';
-import { setWebSocketInstance, createToken, mintTokens, transferOwnership, deployContract } from './modules/transactions.js';
+import { setWebSocketInstance, createToken, mintTokens, ownership, deployContract } from './modules/transactions.js';
 
 window.dapp = {
     showSection,
@@ -11,7 +11,7 @@ window.dapp = {
     toggleWalletConnection,
     createToken,
     mintTokens,
-    transferOwnership,
+    ownership,
     deployContract
 };
 
