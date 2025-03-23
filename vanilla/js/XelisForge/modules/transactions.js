@@ -74,7 +74,7 @@ export async function mintTokens() {
 
 // Manage Ownership
 export async function ownership() {
-    if document.getElementById('renounce').checked {
+    if (document.getElementById('renounce').checked) {
         renounceOwnership();
     } else {
         transferOwnership();
