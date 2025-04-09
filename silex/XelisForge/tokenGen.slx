@@ -7,10 +7,10 @@ struct CAsset{
 
 fn charge(cost: u64, asset: Hash) {
     let deposit: u64 = get_deposit_for_asset(asset).unwrap();
-	require(cost <= deposit, "DepositTooLow");
+    require(cost <= deposit, "DepositTooLow");
     if deposit > cost {
         let change: u64 = deposit - cost;
-	    transfer(Transaction::current().source(), change, asset);
+        transfer(Transaction::current().source(), change, asset);
     }
     transfer(Storage::new().load("owner").unwrap(), cost, asset);
 }
@@ -31,16 +31,15 @@ entry deploy_asset(name: string, ticker: string, supply: u64, decimals: u8, mint
     let asset: optional<Asset> = null;
     let asset_id: u64 = new_asset_id();
     let owner: Address = Transaction::current().source();
-	let max_supply: u64 = 0;
+    let max_supply: u64 = 0;
     if mintable {
         asset = Asset::create(asset_id, name, ticker, decimals, null);
-        //max_supply = (_max_supply == 0) ? 18446744073709551614 : _max_supply;
-        if _max_supply == 0 { max_supply = 18446744073709551614; } else { max_supply = _max_supply; }
+        max_supply = (_max_supply == 0) ? 18446744073709551614 : _max_supply; // Jank fix thanks to JS Number size
     } else {
         asset = Asset::create(asset_id, name, ticker, decimals, supply);
-		max_supply = supply;
+        max_supply = supply;
     }
-	require(asset.is_some(), "AssetNotCreated");
+    require(asset.is_some(), "AssetNotCreated");
     let asset: Asset = asset.unwrap();
     if mintable {
         asset.mint(supply);
@@ -90,11 +89,9 @@ entry set_fee(new_fee: u64) {
     return 0;
 }
 
-entry constructor() {
+hook constructor() {
     let storage: Storage = Storage::new();
-	require(storage.load("owner").is_none(), "ConstructorAlreadyRan")
     storage.store("last_asset_id", 0);
     storage.store("owner", Transaction::current().source());
-    storage.store("fee", 100000000);
-    return 0;
+    storage.store("fee", 1 * 10 ** 8);
 }
