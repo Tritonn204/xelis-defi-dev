@@ -98,7 +98,13 @@
     <div id="deploy" class="container section" style="display: none;">
         <h1>Xelis Contract Deployer</h1>
         <div class="input-container">
-	   <textarea id="bytecode" name="bytecode" placeholder="Bytecode" rows="20" cols="50"></textarea>
+	        <textarea id="bytecode" name="bytecode" placeholder="Bytecode" rows="20" cols="50"></textarea>
+        </div>
+        <div class="input-container checkbox-container">
+            <label class="check-container">
+                <input type="checkbox" id="constructor">
+                <span>Invoke Constructor</span>
+            </label>
         </div>
         <div class="input-container">
             <button onclick="dapp.deployContract()">Deploy</button>

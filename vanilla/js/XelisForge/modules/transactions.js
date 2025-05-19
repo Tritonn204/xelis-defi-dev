@@ -7,7 +7,7 @@ export function setWebSocketInstance(wsInstance) {
     ws = wsInstance;
 }
 
-const contract = "6f9910e6a993540e944821d955388d3714bdafd490de9b1e2f0eb927cdbdf490";
+const contract = "78a1e035c47c3a16c28e4f7cac0f1f05473f18e9e418f0de50c94505a0c456e7";
 
 // Create Token
 export async function createToken() {
@@ -132,9 +132,13 @@ async function renounceOwnership() {
 // Deploy Contract
 export async function deployContract() {
     const bytecode = document.getElementById("bytecode").value;
+    const constructor = document.getElementById("constructor").checked;
 
     const params = {
-        deploy_contract: { module: bytecode },
+        deploy_contract: {
+            module: bytecode,
+            ...(constructor && { invoke: { max_gas: 200000000 } })
+        },
         broadcast: true
     };
     

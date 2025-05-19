@@ -89,9 +89,10 @@ entry set_fee(new_fee: u64) {
     return 0;
 }
 
-hook constructor() {
+hook constructor() -> u64 {
     let storage: Storage = Storage::new();
     storage.store("last_asset_id", 0);
     storage.store("owner", Transaction::current().source());
     storage.store("fee", 1 * 10 ** 8);
+    return 0;
 }
