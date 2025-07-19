@@ -1,22 +1,29 @@
 import React from 'react'
-
-import '../ui/num_nospinner.css'
+import '../../components/ui/num_nospinner.css'
 import { stringToColor } from '../../utils/strings'
 
-const TokenInput = ({ 
+const LiquidityInput = ({ 
   label, 
   balance, 
   amount, 
   onChange, 
   tokenSymbol,
   tokenName = '',
-  price,
+  maxAmount,
+  decimals = 8,
   tickerWidth = 6
 }) => {
   const tokenColor = stringToColor(tokenSymbol + tokenName)
   const firstLetter = tokenSymbol?.charAt(0) || '?'
-  const fiatValue = parseFloat(amount || 0) * (price || 0)
-  const showFiatValue = amount && !isNaN(fiatValue) && fiatValue > 0
+  
+  const handleMaxClick = () => {
+    // Use the actual balance, but leave a small amount for fees if it's XEL
+    if ((tokenSymbol === 'XEL' || tokenSymbol === 'XET') && balance > 0.0005) {
+      onChange((balance - 0.0005).toFixed(decimals))
+    } else {
+      onChange(balance.toString() || '0')
+    }
+  }
   
   return (
     <div className="bg-black/70 rounded-2xl p-3 border border-white/12 backdrop-blur-l">
@@ -36,6 +43,8 @@ const TokenInput = ({
               onChange={(e) => onChange(e.target.value)}
               placeholder="0.0"
               className="bg-transparent text-white text-2xl font-semibold outline-none w-full pl-1"
+              min="0"
+              step={`0.${"0".repeat(decimals-1)}1`} // Dynamic step based on decimals
             />
           </div>
           
@@ -57,16 +66,18 @@ const TokenInput = ({
         </div>
         
         <div className="flex items-center justify-between">
-        {/* Fiat value - only show when input is present */}
-          {showFiatValue ? (
-            <div className="text-sm text-forge-orange mt-1 pl-1">
-              ${fiatValue.toFixed(2)}
-            </div>
-          ) : <div></div>}
+          {/* Empty div for spacing */}
+          <div></div>
         
-          {/* Balance at the bottom, aligned with input */}
-          <div className="text-xs text-gray-500 mt-2 pl-1">
-            Balance: {balance || '0.0'}
+          {/* Balance with MAX button */}
+          <div className="flex items-center text-xs text-gray-500 mt-2 pl-1">
+            <span>Balance: {balance || '0.0'}</span>
+            <button 
+              className="ml-2 text-xs text-forge-orange hover:text-forge-orange/80 font-medium"
+              onClick={handleMaxClick}
+            >
+              MAX
+            </button>
           </div>
         </div>
       </div>
@@ -74,4 +85,4 @@ const TokenInput = ({
   )
 }
 
-export default TokenInput
+export default LiquidityInput

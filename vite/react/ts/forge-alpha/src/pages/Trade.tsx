@@ -16,7 +16,7 @@ const Trade = () => {
     setAmount,
     loading 
   } = useTokens()
-  const { isConnected, connectWallet } = useWallet()
+  const { isConnected, connectWallet, connecting } = useWallet()
 
   const fromToken = tokens[selectedTokens.from]
   const toToken = tokens[selectedTokens.to]
@@ -77,7 +77,7 @@ const Trade = () => {
                 amount={swapAmounts.to}
                 onChange={(value) => setAmount('to', value)}
                 tokenSymbol={toToken?.symbol || 'SUGG'}
-                tokenName={toToken?.name || 'Suggestion Token'}
+                tokenName={toToken?.name || 'suggs93 Token'}
                 price={toToken?.price}
                 tickerWidth={5}
               />
@@ -94,7 +94,7 @@ const Trade = () => {
           </div>
 
           {/* Spacing after inputs */}
-          <div className="mt-1.5"></div>
+          <div className="mt-2"></div>
 
           {/* Action Button - Connect Wallet or Swap */}
           {isConnected ? (
@@ -139,6 +139,8 @@ const Trade = () => {
                 hover:scale-[1.015]
                 active:scale-[0.98]
               "
+              isLoading={connecting}
+              staticSize={true}
             >
               Connect Wallet
             </Button>
