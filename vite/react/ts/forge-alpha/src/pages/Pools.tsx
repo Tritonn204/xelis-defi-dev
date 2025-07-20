@@ -67,7 +67,7 @@ const Pools = () => {
   // Asset state
   const [availableAssets, setAvailableAssets] = useState<Record<string, any>[]>([])
   const {activePools, setActivePools} = usePools();
-  const [assetBalances, setAssetBalances] = useState({})
+  const [assetBalances, setAssetBalances] = useState<Record<string, number>>({})
   const [loadingAssets, setLoadingAssets] = useState(false)
 
   // Mount ping
@@ -132,16 +132,8 @@ const Pools = () => {
   const loadWalletAssets = async () => {
     setLoadingAssets(true)
     try {
-      // In a real implementation, you'd use the XSWD instance to get this data
-      // For this example, we're assuming we have the asset data from the console.log you shared
-      
-      // This would be the actual implementation:
-      // const assetData = await xswdRef.current.wallet.getAssets()
-      
-      // Using the sample data you provided
       const assetData = (await getAssets()) as Record<string, any>
       
-      // Transform the asset data for easier use
       const assets = assetData.map(([hash, data]) => ({
         hash,
         name: data.name,
@@ -151,8 +143,7 @@ const Pools = () => {
       
       setAvailableAssets(assets)
       
-      // Get balances for each asset
-      const balances = {}
+      const balances: Record<string, number> = {}
       for (const asset of assets) {
         if (asset.hash === NATIVE_ASSET_HASH) {
           // For XEL, use the xelBalance from the wallet context
@@ -218,7 +209,7 @@ const Pools = () => {
         totalB = totalB / BigInt(10 ** dataB.decimals)
 
         const lpTotal: BigInt = (await getAssetSupply({ asset: id })).data
-        const myLp: BigInt = await getRawBalance(id)
+        const myLp: BigInt = BigInt(await getRawBalance(id))
 
         const userShare = new Decimal(myLp.toString()).div(lpTotal.toString()).mul(100).toFixed(3).toString()
 
@@ -242,7 +233,7 @@ const Pools = () => {
   // Navigate between screens
   const goToScreen = (screen: string) => {
     setCurrentScreen(screen)
-    if (error) setError(null)
+    if (error) setError('')
   }
 
   // Start add liquidity flow
@@ -280,7 +271,7 @@ const Pools = () => {
   }
 
   // Handle amount changes
-  const handleAmountChange = (tokenField, value) => {
+  const handleAmountChange = (tokenField: string, value: number) => {
     setTokenSelection({
       ...tokenSelection,
       [tokenField]: value
@@ -288,14 +279,14 @@ const Pools = () => {
   }
 
   // Format amount with proper decimals
-  const formatAmountForContract = (amount, decimals) => {
+  const formatAmountForContract = (amount: string, decimals: number) => {
     return parseFloat(amount) * Math.pow(10, decimals)
   }
 
   // Submit liquidity addition
   const submitAddLiquidity = async () => {
     setIsSubmitting(true)
-    setError(null)
+    setError('')
 
     try {
       if (!routerContract || !tokenSelection.token1Hash || !tokenSelection.token2Hash) {
@@ -550,10 +541,9 @@ const Pools = () => {
                   label={`${tokenSelection.token1Symbol} Amount`}
                   balance={getFormattedBalance(tokenSelection.token1Hash)}
                   amount={tokenSelection.token1Amount}
-                  onChange={(value) => handleAmountChange('token1Amount', value)}
+                  onChange={(value: number) => handleAmountChange('token1Amount', value)}
                   tokenSymbol={tokenSelection.token1Symbol}
                   tokenName={availableAssets.find(a => a.hash === tokenSelection.token1Hash)?.name || ''}
-                  price={1.0} // This would come from your price feed
                 />
               </div>
               
@@ -568,10 +558,9 @@ const Pools = () => {
                   label={`${tokenSelection.token2Symbol} Amount`}
                   balance={getFormattedBalance(tokenSelection.token2Hash)}
                   amount={tokenSelection.token2Amount}
-                  onChange={(value) => handleAmountChange('token2Amount', value)}
+                  onChange={(value: number) => handleAmountChange('token2Amount', value)}
                   tokenSymbol={tokenSelection.token2Symbol}
                   tokenName={availableAssets.find(a => a.hash === tokenSelection.token2Hash)?.name || ''}
-                  price={0.5} // This would come from your price feed
                 />
               </div>
             </div>

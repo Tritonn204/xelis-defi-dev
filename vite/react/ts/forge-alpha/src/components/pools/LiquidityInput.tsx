@@ -9,7 +9,6 @@ const LiquidityInput = ({
   onChange, 
   tokenSymbol,
   tokenName = '',
-  maxAmount,
   decimals = 8,
   tickerWidth = 6
 }) => {
