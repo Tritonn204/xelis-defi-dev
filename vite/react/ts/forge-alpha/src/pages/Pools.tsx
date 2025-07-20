@@ -570,7 +570,7 @@ const Pools = () => {
               </div>
             </div>
             
-            <div className="mt-6">
+            <div className="mt-2">
               <Button
                 onClick={() => goToScreen(SCREENS.CONFIRM)}
                 focusOnClick={false}
