@@ -445,7 +445,7 @@ const Pools = () => {
             ) : (
               <>
                 {/* Token selection component */}
-                <div className="grid grid-cols-2 gap-2 mb-6">
+                <div className="grid grid-cols-2 gap-2 mb-2">
                   <div className="bg-black/70 rounded-xl p-3 border border-white/12">
                     <div className="text-white font-medium mb-2">Token 1</div>
                     <select 

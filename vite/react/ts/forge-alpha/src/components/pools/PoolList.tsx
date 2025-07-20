@@ -50,7 +50,7 @@ export const PoolList = ({
             className="bg-black/70 rounded-xl px-2 py-2 border border-white/12 hover:border-white/30 transition-all cursor-pointer overflow-hidden"
           >
             {/* Top row: Info + Icons + My Share */}
-            <div className="relative min-h-16 flex items-center">
+            <div className="relative min-h-14 flex items-center">
               {/* Left: Pool Info */}
               <div className="ml-2 z-10">
                 <div className="text-white font-medium">{pool.name}</div>
