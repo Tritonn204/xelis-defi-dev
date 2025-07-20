@@ -9,7 +9,8 @@ export interface PoolData {
   tickers: [string, string]
   names: [string, string]
   locked: [number, number]
-  userShare: string | undefined
+  userShare: string | undefined,
+  totalLpSupply: BigInt
 }
 
 interface PoolListProps {

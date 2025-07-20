@@ -1,7 +1,8 @@
-import { useState, useEffect, createContext } from 'react'
+import { useState, useEffect, createContext, useRef } from 'react'
 import { useWallet } from '../contexts/WalletContext'
 import { useNode } from '../contexts/NodeContext'
 import { usePools } from '../contexts/PoolContext';
+import { useTransactionContext, type TransactionStatus } from '../contexts/TransactionContext'
 
 import { Settings } from 'lucide-react'
 import Button from '../components/ui/Button'
@@ -59,10 +60,16 @@ const Pools = () => {
     unsubscribeFromNodeEvent,
     awaitTx
   } = useNode()
+
+  const { addContractInvocation } = useTransactionContext()
   
   // Screen state
   const [currentScreen, setCurrentScreen] = useState(SCREENS.LIST)
-  
+  const currentScreenRef = useRef(currentScreen)
+
+  useEffect(() => {
+    currentScreenRef.current = currentScreen
+  }, [currentScreen])
   // Asset state
   const [availableAssets, setAvailableAssets] = useState([])
   const {activePools, setActivePools} = usePools();
@@ -230,6 +237,7 @@ const Pools = () => {
           names: [dataA.name, dataB.name],
           locked: [totalA.toString(), totalB.toString()],
           userShare: isConnected ? userShare : undefined,
+          totalLpSupply: lpTotal
         };
 
         pools.set(poolKey, poolData);
@@ -322,47 +330,32 @@ const Pools = () => {
 
       const txBuilder: any = await buildTransaction(txData)
 
-      const eventResult: { status: string } = await new Promise(async (resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Transaction timed out'))
-        }, 90_000)
+      addContractInvocation(txBuilder.hash, routerContract, (status, hash) => {
+        console.log(`Tx ${hash} completed with status: ${status}`)
+        setTxHash(hash as any)
 
-        try {
-          setTxHash(txBuilder.hash)
-          awaitTx(txBuilder.hash, async () => {
-            console.log("Confirmed, TODO check tx result")
-            const contractOut: any = await getContractOutputs({
-              contract: routerContract, transaction: txBuilder.hash
-            })
-            console.log("contract output", contractOut)
-            clearTimeout(timeout)
-
-            const exitCode = getExitCodeFromOutputs(contractOut)
-            resolve({ status: exitCode === 0 ?'executed' : 'reverted' });
-          })
-
-          await submitTransaction(txBuilder)
-        } catch (err: any) {
-          clearTimeout(timeout)
-          await clearTxCache()
-          reject(new Error(`Failed during awaitTx callback: ${err.message || err}`))
+        if (status === 'executed') {
+          loadLPList()
+          if (currentScreenRef.current == SCREENS.CONFIRM) {
+            goToScreen(SCREENS.SUCCESS)            
+          }
+        } else {
+          setError(`Transaction ${status}` as any)
+          if (currentScreenRef.current == SCREENS.CONFIRM) {
+            goToScreen(SCREENS.ERROR)            
+          }
         }
+
+        setIsSubmitting(false)
       })
 
-      if (eventResult.status === 'executed') {
-        await loadLPList()
-        setRefresh(!refresh)
-        goToScreen(SCREENS.SUCCESS)
-      } else {
-        await clearTxCache()
-        throw new Error(`Transaction status: ${eventResult.status}`)
-      }
+      await submitTransaction(txBuilder)
+
     } catch (err: any) {
       await clearTxCache()
       setError(err.message || 'Failed to add liquidity')
-      goToScreen(SCREENS.ERROR)
-    } finally {
       setIsSubmitting(false)
+      goToScreen(SCREENS.ERROR)    
     }
   }
 
@@ -548,7 +541,7 @@ const Pools = () => {
             
             <div className="relative">
               {/* First token input */}
-              <div className="mb-3">
+              <div className="-mb-6">
                 <LiquidityInput 
                   label={`${tokenSelection.token1Symbol} Amount`}
                   balance={getFormattedBalance(tokenSelection.token1Hash)}
@@ -561,12 +554,12 @@ const Pools = () => {
               </div>
               
               {/* Plus sign between inputs */}
-              <div className="flex justify-center items-center my-2">
-                <div className="text-white text-2xl">+</div>
+              <div className="flex justify-center items-center">
+                <div className="text-white text-4xl">+</div>
               </div>
               
               {/* Second token input */}
-              <div className="mt-3">
+              <div className="-mt-4">
                 <LiquidityInput 
                   label={`${tokenSelection.token2Symbol} Amount`}
                   balance={getFormattedBalance(tokenSelection.token2Hash)}
@@ -608,6 +601,16 @@ const Pools = () => {
         )
       
       case SCREENS.CONFIRM:
+        const poolKey1 = `${tokenSelection.token1Hash}_${tokenSelection.token2Hash}`
+        const poolKey2 = `${tokenSelection.token2Hash}_${tokenSelection.token1Hash}`
+        const pool = (activePools.get(poolKey1) || activePools.get(poolKey2))!
+        const totalLP = pool?.totalLpSupply
+        const ratio1 = parseFloat(tokenSelection.token1Amount) / pool.locked[0]
+        const ratio2 = parseFloat(tokenSelection.token2Amount) / pool.locked[1]
+        const shareRatio = Math.min(ratio1, ratio2)
+
+        const estimatedLpTokens = new Decimal((totalLP).toString()).mul(shareRatio).div(10 ** 8).toFixed(8)
+
         return (
           <>
             <div className="flex items-center mb-4">
@@ -645,10 +648,7 @@ const Pools = () => {
                 <div className="flex justify-between items-center">
                   <div className="text-gray-300">Estimated LP tokens</div>
                   <div className="text-white font-medium">
-                    {Math.sqrt(
-                      parseFloat(tokenSelection.token1Amount || '0') * 
-                      parseFloat(tokenSelection.token2Amount || '0')
-                    ).toFixed(4)} LP
+                    {estimatedLpTokens.toString()} LP
                   </div>
                 </div>
                 
