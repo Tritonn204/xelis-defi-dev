@@ -312,7 +312,7 @@ const Tools = () => {
     switch (activePanel) {
       case PANELS.CREATE_TOKEN:
         return (
-          <div className="space-y-1 bg-black/50 p-2 rounded-lg">
+          <div className="space-y-1 bg-black/55 border-forge-orange/12 border-1 p-2 rounded-lg backdrop-blur-md">
             <div>
               <label className="block text-forge-orange text-sm font-medium mb-2">Token Name</label>
               <input
@@ -411,7 +411,7 @@ const Tools = () => {
 
       case PANELS.DEPLOY_CONTRACT:
         return (
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div>
               <label className="block text-white text-sm font-medium mb-2">Contract Bytecode (Hex)</label>
               <textarea
@@ -446,7 +446,7 @@ const Tools = () => {
 
       case PANELS.MINT_TOKENS:
         return (
-          <div className="space-y-4">
+          <div className="space-y-1">
             <div>
               <label className="block text-white text-sm font-medium mb-2">Select Token</label>
               <select
