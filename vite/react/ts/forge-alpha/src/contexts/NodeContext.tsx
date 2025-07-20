@@ -743,6 +743,9 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   )
 }
 
+// Native XEL asset hash
+export const NATIVE_ASSET_HASH = '0000000000000000000000000000000000000000000000000000000000000000'
+
 export const useNode = (): NodeContextType => {
   const context = useContext(NodeContext)
   if (!context) {

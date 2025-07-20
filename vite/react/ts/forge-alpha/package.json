@@ -5,16 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
+    "type-check": "tsc --noEmit",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@netlify/vite-plugin": "^2.4.3",
     "@tanstack/react-query": "^5.83.0",
     "@xelis/sdk": "^0.10.12",
     "axios": "^1.10.0",
     "decimal.js": "^10.6.0",
     "lucide-react": "^0.525.0",
+    "path": "^0.12.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^6.30.1",

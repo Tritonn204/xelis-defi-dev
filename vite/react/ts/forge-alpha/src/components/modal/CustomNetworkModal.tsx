@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNode } from '../../contexts/NodeContext'
+import { useNode, type CustomNetworkConfig } from '../../contexts/NodeContext'
 import { X, Trash2 } from 'lucide-react'
 import Button from '../ui/Button'
 import ConfirmDialog from '../ui/ConfirmDialog'

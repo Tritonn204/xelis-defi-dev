@@ -1,17 +1,17 @@
 import { useState, useEffect, createContext, useRef } from 'react'
-import { useWallet } from '../contexts/WalletContext'
-import { useNode } from '../contexts/NodeContext'
-import { usePools } from '../contexts/PoolContext';
-import { useTransactionContext, type TransactionStatus } from '../contexts/TransactionContext'
+import { useWallet } from '@/contexts/WalletContext'
+import { NATIVE_ASSET_HASH, useNode } from '@/contexts/NodeContext'
+import { usePools } from '@/contexts/PoolContext';
+import { useTransactionContext, type TransactionStatus } from '@/contexts/TransactionContext'
 
 import { Settings } from 'lucide-react'
-import Button from '../components/ui/Button'
-import GeometricAccents from '../components/ui/GeometricAccents'
-import LiquidityInput from '../components/pools/LiquidityInput'
-import { PoolList, type PoolData } from '../components/pools/PoolList'
-import PoolStats from '../components/pools/PoolStats'
+import Button from '@/components/ui/Button'
+import GeometricAccents from '@/components/ui/GeometricAccents'
+import LiquidityInput from '@/components/pools/LiquidityInput'
+import { PoolList, type PoolData } from '@/components/pools/PoolList'
+import PoolStats from '@/components/pools/PoolStats'
 import { ArrowLeft } from 'lucide-react'
-import { createAddLiquidityTransaction, getExitCodeFromOutputs } from '../utils/contracts'
+import { createAddLiquidityTransaction, getExitCodeFromOutputs } from '@/utils/contracts'
 
 import * as daemonTypes from '@xelis/sdk/daemon/types'
 import * as walletTypes from '@xelis/sdk/wallet/types'
@@ -28,9 +28,6 @@ const SCREENS = {
   ERROR: 'error'
 }
 
-// Native XEL asset hash
-const NATIVE_ASSET_HASH = '0000000000000000000000000000000000000000000000000000000000000000'
-
 const Pools = () => {
   const { 
     isConnected, 
@@ -38,7 +35,6 @@ const Pools = () => {
     connecting, 
     address, 
     xelBalance ,
-    buildAndSubmitTransaction,
     buildTransaction,
     submitTransaction,
     clearTxCache,
@@ -54,14 +50,10 @@ const Pools = () => {
     getContractAssets,
     getAsset,
     getAssetSupply,
-    getTransaction,
-    getContractOutputs,
-    subscribeToNodeEvent,
-    unsubscribeFromNodeEvent,
-    awaitTx
   } = useNode()
-
-  const { awaitContractInvocation } = useTransactionContext()
+  const { 
+    awaitContractInvocation
+  } = useTransactionContext()
   
   // Screen state
   const [currentScreen, setCurrentScreen] = useState(SCREENS.LIST)
@@ -308,6 +300,8 @@ const Pools = () => {
         throw new Error('Missing router address or token selection')
       }
 
+      console.log(tokenSelection)
+
       const token1Amount = formatAmountForContract(
         tokenSelection.token1Amount, 
         tokenSelection.token1Decimals
@@ -327,6 +321,8 @@ const Pools = () => {
       })
 
       const txBuilder: any = await buildTransaction(txData)
+
+      console.log("Add LP TX", txBuilder)
 
       awaitContractInvocation(txBuilder.hash, routerContract, async (status, hash) => {
         console.log(`Tx ${hash} completed with status: ${status}`)
@@ -350,10 +346,18 @@ const Pools = () => {
       await submitTransaction(txBuilder)
 
     } catch (err: any) {
-      await clearTxCache()
-      setError(err.message || 'Failed to add liquidity')
+      let cacheErrorMessage = ''
+
+      try {
+        await clearTxCache()
+      } catch (cacheErr: any) {
+        cacheErrorMessage = `, (also failed to clear tx cache: ${cacheErr.message || 'unknown error'})`
+        console.error('Failed to clear TX cache:', cacheErr)
+      }
+
+      setError(`Failed to add liquidity: ${err.message || err}` + cacheErrorMessage as any)
       setIsSubmitting(false)
-      goToScreen(SCREENS.ERROR)    
+      goToScreen(SCREENS.ERROR)
     }
   }
 
@@ -601,13 +605,22 @@ const Pools = () => {
       case SCREENS.CONFIRM:
         const poolKey1 = `${tokenSelection.token1Hash}_${tokenSelection.token2Hash}`
         const poolKey2 = `${tokenSelection.token2Hash}_${tokenSelection.token1Hash}`
-        const pool = (activePools.get(poolKey1) || activePools.get(poolKey2))!
-        const totalLP = pool?.totalLpSupply
-        const ratio1 = parseFloat(tokenSelection.token1Amount) / pool.locked[0]
-        const ratio2 = parseFloat(tokenSelection.token2Amount) / pool.locked[1]
-        const shareRatio = Math.min(ratio1, ratio2)
+        const pool = activePools.get(poolKey1) || activePools.get(poolKey2)
 
-        const estimatedLpTokens = new Decimal((totalLP).toString()).mul(shareRatio).div(10 ** 8).toFixed(8)
+        let estimatedLpTokens: string
+
+        if (pool) {
+          const totalLP = new Decimal(pool.totalLpSupply.toString())
+          const ratio1 = new Decimal(tokenSelection.token1Amount).div(pool.locked[0] || 1)
+          const ratio2 = new Decimal(tokenSelection.token2Amount).div(pool.locked[1] || 1)
+          const shareRatio = Decimal.min(ratio1, ratio2)
+
+          estimatedLpTokens = totalLP.mul(shareRatio).div(1e8).toFixed(8)
+        } else {
+          const amount1 = new Decimal(tokenSelection.token1Amount)
+          const amount2 = new Decimal(tokenSelection.token2Amount)
+          estimatedLpTokens = amount1.mul(amount2).sqrt().toFixed(8)
+        }
 
         return (
           <>

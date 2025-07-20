@@ -8,7 +8,7 @@ import { Edit3, Settings, ChevronDown, Globe } from 'lucide-react'
 import type { CustomNetworkConfig } from '../../contexts/NodeContext'
 
 import Button from '../ui/Button'
-import ConfirmDialog from '../ui/ConfirmDialog'
+// import ConfirmDialog from '../ui/ConfirmDialog'
 import CustomNetworkModal from '../modal/CustomNetworkModal'
 
 import bannerImage from '../../assets/banner.png'
@@ -20,11 +20,11 @@ const Layout = ({ children }) => {
   const { 
     currentNetwork, 
     currentNode,
-    networkInfo, 
+    // networkInfo, 
     networkMismatch, 
     connectToNetwork,
     connectToCustomNetwork,
-    deleteCustomNetwork,
+    // deleteCustomNetwork,
     getCustomNetworks,
     generateNetworkId,
     isConnected: nodeConnected 

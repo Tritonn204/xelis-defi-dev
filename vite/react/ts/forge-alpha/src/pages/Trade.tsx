@@ -1,11 +1,11 @@
-import { useTokens } from '../contexts/TokenContext'
-import { useWallet } from '../contexts/WalletContext'
+import { useTokens } from '@/contexts/TokenContext'
+import { useWallet } from '@/contexts/WalletContext'
 import { Settings } from 'lucide-react'
-import TokenInput from '../components/trade/TokenInput'
-import TokenStats from '../components/trade/TokenStats'
-import SwapButton from '../components/trade/SwapButton'
-import Button from '../components/ui/Button'
-import GeometricAccents from '../components/ui/GeometricAccents'
+import TokenInput from '@/components/trade/TokenInput'
+import TokenStats from '@/components/trade/TokenStats'
+import SwapButton from '@/components/trade/SwapButton'
+import Button from '@/components/ui/Button'
+import GeometricAccents from '@/components/ui/GeometricAccents'
 
 const Trade = () => {
   const { 

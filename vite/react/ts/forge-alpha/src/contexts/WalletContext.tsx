@@ -1,10 +1,10 @@
 import { createContext, useContext, useReducer, useEffect, useRef, type ReactNode } from 'react'
-import { LOCAL_XSWD_WS } from '@xelis/sdk/config.js'
-import XSWD from '@xelis/sdk/xswd/websocket.js'
-import { type ApplicationData } from '@xelis/sdk/xswd/types.js'
-import { objectToHex } from '../utils/data'
+import { LOCAL_XSWD_WS } from '@xelis/sdk/config'
+import XSWD from '@xelis/sdk/xswd/websocket'
+import { type ApplicationData } from '@xelis/sdk/xswd/types'
 
 import * as types from '@xelis/sdk/wallet/types'
+import { NATIVE_ASSET_HASH } from './NodeContext'
 
 interface WalletState {
   isConnected: boolean
@@ -20,9 +20,9 @@ interface WalletContextType extends WalletState {
   connectWallet: () => Promise<void>
   disconnectWallet: () => void
   updateBalance: () => Promise<void>
-  getAssets: () => Promise<Map<string, number>>
-  getBalance: (hash: string | undefined) => Promise<string>
-  getRawBalance: (hash: string | undefined) => Promise<BigInt>
+  getAssets: () => Promise<{ [key: string]: types.Asset } | undefined>
+  getBalance: (hash?: string) => Promise<string>
+  getRawBalance: (hash?: string) => Promise<number | "0">
   clearTxCache: () => Promise<void>
   buildAndSubmitTransaction: (txData: object) => Promise<object>
   buildTransaction: (txData: object) => Promise<object>
@@ -154,7 +154,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       
       const [address, balanceData, assetData, daemonInfo] = await Promise.all([
         xswdRef.current.wallet.getAddress(),
-        xswdRef.current.wallet.getBalance(),
+        xswdRef.current.wallet.getBalance( NATIVE_ASSET_HASH ),
         xswdRef.current.wallet.getAssets(),
         xswdRef.current.daemon.getInfo()
       ])
@@ -202,7 +202,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!xswdRef.current || !state.isConnected) return
 
     try {
-      const balanceData = await xswdRef.current.wallet.getBalance()
+      const balanceData = await xswdRef.current.wallet.getBalance( NATIVE_ASSET_HASH )
       const balance = balanceData ? `${(balanceData / 100000000).toFixed(8)} XEL` : '0 XEL'
       dispatch({ type: 'UPDATE_BALANCE', payload: balance })
     } catch (error) {
@@ -224,8 +224,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!xswdRef.current || !state.isConnected) return '0'
 
     try {
-      const balanceData = await xswdRef.current.wallet.getBalance(assetHash)
-      const assetData = await xswdRef.current.wallet.getAssets({asset: assetHash})
+      const balanceData = await xswdRef.current.wallet.getBalance(assetHash || NATIVE_ASSET_HASH)
+      const assetData = await xswdRef.current.wallet.getAsset({asset: assetHash || NATIVE_ASSET_HASH})
       
       const decimals = assetData?.decimals ?? 8
       return balanceData ? 
@@ -241,7 +241,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     if (!xswdRef.current || !state.isConnected) return '0'
 
     try {
-      return await xswdRef.current.wallet.getBalance(assetHash) || 0
+      return await xswdRef.current.wallet.getBalance(assetHash || NATIVE_ASSET_HASH) || 0
     } catch (error) {
       console.error('Error getting balance:', error)
       return '0'
@@ -249,7 +249,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const clearTxCache = async () => {
-    await xswdRef.current.wallet.clearTxCache()
+    await xswdRef.current?.wallet.clearTxCache()
   }
 
   const buildAndSubmitTransaction = async (txData: object) => {
@@ -261,7 +261,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const txResult = await xswdRef.current.wallet.buildTransaction({
         ...txData,
         broadcast: true
-      });
+      } as types.BuildTransactionParams);
                   
       return {
         success: !!txResult,
@@ -320,21 +320,21 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const unsubscribeFromWalletEvent = (event: types.RPCEvent) => {
-    if (!xswdRef.current) return
+    // if (!xswdRef.current) return
 
-    const callback = eventCallbacksRef.current.get(event)
-    if (callback) {
-      xswdRef.current.off(event, callback)
-      eventCallbacksRef.current.delete(event)
-      dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
-    }
+    // const callback = eventCallbacksRef.current.get(event)
+    // if (callback) {
+    //   xswdRef.current.off(event, callback)
+    //   eventCallbacksRef.current.delete(event)
+    //   dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
+    // }
   }
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (xswdRef.current) {
-        xswdRef.current.close().catch(console.error)
+        xswdRef.current.close()
         xswdRef.current = null
       }
     }
