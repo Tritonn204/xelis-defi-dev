@@ -1,4 +1,5 @@
-import { vmParam, createContractInvocation, createContractDeployment } from '@/utils/xvmSerializer';
+import { NATIVE_ASSET_HASH } from '@/contexts/NodeContext';
+import { vmParam, createContractInvocation, createContractDeployment, createDeposits } from '@/utils/xvmSerializer';
 
 // Define the token contract interface types
 export interface CreateTokenParams {
@@ -70,7 +71,7 @@ export const createTokenTransaction = (params: CreateTokenParams): Record<string
       vmParam.u64(adjustedMaxSupply)
     ],
     deposits: {
-      "0000000000000000000000000000000000000000000000000000000000000000": 100000000 // 1XEL Forge fee
+      [NATIVE_ASSET_HASH]: 100000000
     },
     maxGas
   });

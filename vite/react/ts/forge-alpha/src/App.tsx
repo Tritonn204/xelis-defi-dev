@@ -9,7 +9,7 @@ import { TransactionProvider } from './contexts/TransactionContext'
 import Layout from './components/layout/Layout'
 import Trade from './pages/Trade'
 import Pools from './pages/Pools'
-// import Tools from './pages/Tools'
+import Tools from './pages/Tools'
 // import Bridge from './pages/Bridge'
 import './App.css'
 
@@ -29,8 +29,8 @@ function App() {
                       <Route path="/" element={<Trade />} />
                       <Route path="/trade" element={<Trade />} />
                       <Route path="/pools" element={<Pools />} />
-                      {/* 
                       <Route path="/tools" element={<Tools />} />
+                      {/* 
                       <Route path="/bridge" element={<Bridge />} /> */}
                     </Routes>
                   </Layout>

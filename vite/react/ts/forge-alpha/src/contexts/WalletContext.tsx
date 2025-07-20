@@ -25,7 +25,7 @@ interface WalletContextType extends WalletState {
   getRawBalance: (hash?: string) => Promise<number | "0">
   clearTxCache: () => Promise<void>
   buildAndSubmitTransaction: (txData: object) => Promise<object>
-  buildTransaction: (txData: object) => Promise<object>
+  buildTransaction: (txData: object) => Promise<Record<string, any>>
   submitTransaction: (txData: object) => Promise<object>
   subscribeToWalletEvent: (event: types.RPCEvent, callback: (data: any) => void) => void
   unsubscribeFromWalletEvent: (event: types.RPCEvent) => void

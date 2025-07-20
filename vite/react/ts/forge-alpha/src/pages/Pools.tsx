@@ -65,7 +65,7 @@ const Pools = () => {
     currentScreenRef.current = currentScreen
   }, [currentScreen])
   // Asset state
-  const [availableAssets, setAvailableAssets] = useState([])
+  const [availableAssets, setAvailableAssets] = useState<Record<string, any>[]>([])
   const {activePools, setActivePools} = usePools();
   const [assetBalances, setAssetBalances] = useState({})
   const [loadingAssets, setLoadingAssets] = useState(false)
@@ -139,7 +139,7 @@ const Pools = () => {
       // const assetData = await xswdRef.current.wallet.getAssets()
       
       // Using the sample data you provided
-      const assetData = await getAssets()
+      const assetData = (await getAssets()) as Record<string, any>
       
       // Transform the asset data for easier use
       const assets = assetData.map(([hash, data]) => ({

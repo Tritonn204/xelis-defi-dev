@@ -1,5 +1,5 @@
 import { type AddLiquidityParams } from "./types";
-import { vmParam, createDeposits } from "@/utils/xvmSerializer";
+import { vmParam, createContractInvocation } from "@/utils/xvmSerializer";
 
 /**
  * Creates a transaction to add liquidity to a pool
@@ -13,21 +13,19 @@ import { vmParam, createDeposits } from "@/utils/xvmSerializer";
  * @returns {Object} Transaction data object
  */
 export const createAddLiquidityTransaction = (params: AddLiquidityParams): Record<string, any> => {
-  const { routerContract, token1Hash, token2Hash, token1Amount, token2Amount, maxGas = 500000000 } = params;
+  const { routerContract, token1Hash, token2Hash, token1Amount, token2Amount, maxGas = 200000000 } = params;
 
-  return {
-    invoke_contract: {
-      contract: routerContract,
-      max_gas: maxGas,
-      chunk_id: 10,
-      parameters: [
-        vmParam.hash(token1Hash),
-        vmParam.hash(token2Hash)
-      ],
-      deposits: createDeposits({
-        [token1Hash]: token1Amount,
-        [token2Hash]: token2Amount
-      })
-    },
-  };
+  return createContractInvocation({
+    contract: routerContract,
+    maxGas,
+    chunkId: 10,
+    parameters: [
+      vmParam.hash(token1Hash),
+      vmParam.hash(token2Hash)
+    ],
+    deposits: {
+      [token1Hash]: token1Amount,
+      [token2Hash]: token2Amount
+    }
+  })
 }
