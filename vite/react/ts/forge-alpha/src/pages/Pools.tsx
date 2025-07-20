@@ -84,8 +84,8 @@ const Pools = () => {
   })
   
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState(null)
-  const [txHash, setTxHash] = useState(null)
+  const [error, setError] = useState('')
+  const [txHash, setTxHash] = useState('')
 
   // Get router contract address from custom network config
   const getrouterContract = () => {
@@ -326,7 +326,7 @@ const Pools = () => {
 
       awaitContractInvocation(txBuilder.hash, routerContract, async (status, hash) => {
         console.log(`Tx ${hash} completed with status: ${status}`)
-        setTxHash(hash as any)
+        setTxHash(hash)
         setRefresh(!refresh)
 
         if (status === 'executed') {
@@ -334,7 +334,7 @@ const Pools = () => {
             goToScreen(SCREENS.SUCCESS)            
           }
         } else {
-          setError(`Transaction ${status}` as any)
+          setError(`Transaction ${status}`)
           if (currentScreenRef.current == SCREENS.CONFIRM) {
             goToScreen(SCREENS.ERROR)            
           }
@@ -355,7 +355,7 @@ const Pools = () => {
         console.error('Failed to clear TX cache:', cacheErr)
       }
 
-      setError(`Failed to add liquidity: ${err.message || err}` + cacheErrorMessage as any)
+      setError(`Failed to add liquidity: ${err.message || err}` + cacheErrorMessage)
       setIsSubmitting(false)
       goToScreen(SCREENS.ERROR)
     }
