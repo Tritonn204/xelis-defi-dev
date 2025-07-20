@@ -1,22 +1,38 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 
-const PoolList = () => {
-  // This would be populated from your API or state
-  const pools = []
-  
-  if (pools.length === 0) {
+export interface PoolData {
+  name: string;
+  tvl: number;
+  userShare: string | undefined;
+}
+
+interface PoolListProps {
+  pools?: Map<string, PoolData>;
+}
+
+export const PoolList = ({
+  pools = new Map<string, PoolData>()
+}: PoolListProps) => {
+
+  const poolEntries = Array.from(pools.entries());
+
+  useEffect(() => {
+    console.log('Pool entries:', poolEntries);
+  }, [pools]);
+
+  if (poolEntries.length === 0) {
     return (
       <div className="text-center py-6 text-gray-400">
         No active pools found
       </div>
-    )
+    );
   }
-  
+
   return (
     <div className="space-y-3">
-      {pools.map((pool, index) => (
+      {poolEntries.map(([key, pool]) => (
         <div 
-          key={index}
+          key={key}
           className="bg-black/70 rounded-xl p-3 border border-white/12 hover:border-white/30 transition-all cursor-pointer"
         >
           <div className="flex justify-between items-center">
@@ -26,18 +42,17 @@ const PoolList = () => {
               </div>
               <div>
                 <div className="text-white font-medium">{pool.name}</div>
-                <div className="text-gray-400 text-sm">TVL: ${pool.tvl}</div>
+                <div className="text-gray-400 text-sm">TVL: ${pool.tvl.toLocaleString()}</div>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-white">{pool.apr}% APR</div>
-              <div className="text-gray-400 text-sm">My share: {pool.userShare}%</div>
+              <div className="text-gray-400 text-sm">My share: {pool.userShare ?? '--'}%</div>
             </div>
           </div>
         </div>
       ))}
     </div>
-  )
-}
+  );
+};
 
-export default PoolList
+export default PoolList;

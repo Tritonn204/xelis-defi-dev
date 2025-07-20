@@ -54,7 +54,7 @@ export const createAddLiquidityTransaction = (params) => {
  * @param {string} hex - Hex string to convert
  * @returns {number[]} Byte array
  */
-export const hexToBytes = (hex) => {
+export const hexToBytes = (hex: string) => {
   // Remove '0x' prefix if it exists
   const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex
   
@@ -73,9 +73,9 @@ export const hexToBytes = (hex) => {
  * @param {number} decimals - Number of decimals for the token
  * @returns {number} Amount in smallest units for the contract
  */
-export const formatAmountForContract = (amount, decimals) => {
+export const formatAmountForContract = (amount: string | number, decimals: number) => {
   if (!amount) return 0
-  const parsedAmount = parseFloat(amount)
+  const parsedAmount = parseFloat(amount as string)
   if (isNaN(parsedAmount)) return 0
   return Math.floor(parsedAmount * Math.pow(10, decimals))
 }
@@ -86,7 +86,7 @@ export const formatAmountForContract = (amount, decimals) => {
  * @param {number} decimals - Number of decimals for the token
  * @returns {string} Formatted amount for display
  */
-export const formatAmountForDisplay = (amount, decimals) => {
+export const formatAmountForDisplay = (amount: number, decimals: number) => {
   if (!amount) return '0'
   return (amount / Math.pow(10, decimals)).toFixed(Math.min(decimals, 8))
 }

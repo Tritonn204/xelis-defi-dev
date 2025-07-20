@@ -5,7 +5,7 @@ import { Settings } from 'lucide-react'
 import Button from '../components/ui/Button'
 import GeometricAccents from '../components/ui/GeometricAccents'
 import LiquidityInput from '../components/pools/LiquidityInput'
-import PoolList from '../components/pools/PoolList'
+import { PoolList, type PoolData } from '../components/pools/PoolList'
 import PoolStats from '../components/pools/PoolStats'
 import { ArrowLeft } from 'lucide-react'
 import { createAddLiquidityTransaction } from '../utils/contractHelpers'
@@ -39,7 +39,8 @@ const Pools = () => {
     currentNode, 
     customNetworks,
     getContractData,
-    getContractAssets
+    getContractAssets,
+    getAsset
   } = useNode()
   
   // Screen state
@@ -47,13 +48,14 @@ const Pools = () => {
   
   // Asset state
   const [availableAssets, setAvailableAssets] = useState([])
+  const [activePools, setActivePools] = useState(new Map<string, PoolData>())
   const [assetBalances, setAssetBalances] = useState({})
   const [loadingAssets, setLoadingAssets] = useState(false)
   
   // Liquidity state
   const [tokenSelection, setTokenSelection] = useState({
-    token1Hash: null,
-    token2Hash: null,
+    token1Hash: '',
+    token2Hash: '',
     token1Amount: '',
     token2Amount: '',
     token1Symbol: 'XEL',
@@ -146,6 +148,7 @@ const Pools = () => {
       const assetList = await getContractAssets(routerAddress)
       console.log(assetList)
 
+      let pools = activePools
       assetList.forEach(async (id) => {
         if (id != NATIVE_ASSET_HASH) {
           const data = await getContractData({
@@ -159,11 +162,37 @@ const Pools = () => {
             }}
           })
 
-          if (data?.data.type == "object" && data?.data.value.length == 2) {
-            console.log(`Found LP`, data)
+          if (data?.data.type == "object" && data?.data.value.length == 2 && data?.data.value[1].type == 'map') {
+            const lpMap = data?.data.value[1].value
+            const lpAssets = Object.keys(lpMap)
+
+            const tokenA = lpAssets[0]
+            const tokenB = lpAssets[1]
+            const poolKey = `${tokenA}_${tokenB}`
+
+            let poolData: PoolData | undefined = undefined
+            if (!pools.has(poolKey)) {
+              const dataA = await getAsset({asset: tokenA})
+              const dataB = await getAsset({asset: tokenB})
+              const symbolA = dataA.ticker
+              const symbolB = dataB.ticker
+
+              poolData = {
+                name: `${symbolA} - ${symbolB}`,
+                tvl: 0,
+                userShare: undefined
+              }
+            } else {
+              poolData = pools.get(poolKey)
+            }
+
+            // TODO update TVL information here etc.
+
+            pools.set(`${tokenA}_${tokenB}`, poolData as PoolData)
           }
         }
       })
+      setActivePools(pools)
     }
   }
 
@@ -183,7 +212,7 @@ const Pools = () => {
   }
 
   // Handle token selection
-  const handleSelectTokens = (token1Hash, token2Hash) => {
+  const handleSelectTokens = (token1Hash: string, token2Hash: string) => {
     // Find the selected tokens in our available assets
     const token1 = availableAssets.find(asset => asset.hash === token1Hash)
     const token2 = availableAssets.find(asset => asset.hash === token2Hash)
@@ -325,7 +354,9 @@ const Pools = () => {
             )}
             
             <div className="mt-6">
-              <PoolList />
+              <PoolList 
+                pools={activePools}
+              />
             </div>
           </>
         )

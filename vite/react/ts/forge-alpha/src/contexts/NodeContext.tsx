@@ -3,6 +3,8 @@ import { TESTNET_NODE_WS, MAINNET_NODE_WS } from '@xelis/sdk/config.js'
 import DaemonWS from '@xelis/sdk/daemon/websocket.js'
 import * as types from '@xelis/sdk/daemon/types.js'
 
+import { genericTransformer, responseTransformers} from '../utils/types'
+
 type NetworkType = 'mainnet' | 'testnet' | 'custom'
 
 interface NodeConfig {
@@ -84,7 +86,7 @@ interface NodeContextType extends NodeState {
   getAssets: (params?: types.GetAssetsParams) => Promise<string[]>
   
   // Smart contract queries
-  getContractData: (params: types.GetContractDataPrams) => Promise<types.GetContractDataResult>
+  getContractData: (params: types.GetContractDataParams) => Promise<types.GetContractDataResult>
   getContractBalance: (params: types.GetContractBalanceParams) => Promise<types.GetContractBalanceResult>
   getContractModule: (params: types.GetContractModuleParams) => Promise<types.GetContractModuleResult>
   getContractAssets: (contract: string) => Promise<string[]>
@@ -189,7 +191,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const customNetworksRef = useRef<Map<string, CustomNetworkConfig>>(new Map())
 
   // Macro-like method wrapper with proper TypeScript generics
-  const createMethodWrapper = <TReturn, TParams extends any[] = []>(
+  const createRPCMethodWrapper = <TReturn, TParams extends any[] = []>(
     methodName: string
   ) => {
     return async (...args: TParams): Promise<TReturn> => {
@@ -203,6 +205,25 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       }
       
       return await method(...args)
+    }
+  }
+
+  const createContractMethodWrapper = <TReturn, TParams extends any[] = []>(
+    methodName: string,
+    transformer = genericTransformer
+  ) => {
+    return async (...args: TParams): Promise<TReturn> => {
+      if (!daemonRef.current?.methods) {
+        throw new Error('Not connected to any node')
+      }
+      
+      const method = (daemonRef.current.methods as any)[methodName]
+      if (typeof method !== 'function') {
+        throw new Error(`Method ${methodName} not available`)
+      }
+      
+      const response = await method(...args)
+      return transformer(response) as TReturn
     }
   }
 
@@ -326,44 +347,46 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   }
 
   // Network queries - using the macro-like approach
-  const getInfo = createMethodWrapper<types.GetInfoResult>('getInfo')
-  const getHeight = createMethodWrapper<number>('getHeight')
-  const getTopoheight = createMethodWrapper<number>('getTopoheight')
+  const getInfo = createRPCMethodWrapper<types.GetInfoResult>('getInfo')
+  const getHeight = createRPCMethodWrapper<number>('getHeight')
+  const getTopoheight = createRPCMethodWrapper<number>('getTopoheight')
 
   // Block queries
-  const getBlockByHash = createMethodWrapper<types.Block, [types.GetBlockByHashParams]>('getBlockByHash')
-  const getBlockAtTopoheight = createMethodWrapper<types.Block, [types.GetBlockAtTopoheightParams]>('getBlockAtTopoheight')
-  const getTopBlock = createMethodWrapper<types.Block, [types.GetTopBlockParams?]>('getTopBlock')
+  const getBlockByHash = createRPCMethodWrapper<types.Block, [types.GetBlockByHashParams]>('getBlockByHash')
+  const getBlockAtTopoheight = createRPCMethodWrapper<types.Block, [types.GetBlockAtTopoheightParams]>('getBlockAtTopoheight')
+  const getTopBlock = createRPCMethodWrapper<types.Block, [types.GetTopBlockParams?]>('getTopBlock')
 
   // Transaction queries
-  const getTransaction = createMethodWrapper<types.TransactionResponse, [string]>('getTransaction')
-  const getTransactions = createMethodWrapper<types.TransactionResponse[], [string[]]>('getTransactions')
-  const getMempool = createMethodWrapper<types.GetMempoolResult, [types.GetMempoolParams?]>('getMemPool')
-  const getEstimatedFeeRates = createMethodWrapper<types.FeeRatesEstimated>('getEstimatedFeeRates')
+  const getTransaction = createRPCMethodWrapper<types.TransactionResponse, [string]>('getTransaction')
+  const getTransactions = createRPCMethodWrapper<types.TransactionResponse[], [string[]]>('getTransactions')
+  const getMempool = createRPCMethodWrapper<types.GetMempoolResult, [types.GetMempoolParams?]>('getMemPool')
+  const getEstimatedFeeRates = createRPCMethodWrapper<types.FeeRatesEstimated>('getEstimatedFeeRates')
 
   // Account queries
-  const getBalance = createMethodWrapper<types.GetBalanceResult, [types.GetBalanceParams]>('getBalance')
-  const getAccountHistory = createMethodWrapper<types.AccounHistory[], [types.GetAccountHistoryParams]>('getAccountHistory')
-  const getAccountAssets = createMethodWrapper<string[], [string]>('getAccountAssets')
+  const getBalance = createRPCMethodWrapper<types.GetBalanceResult, [types.GetBalanceParams]>('getBalance')
+  const getAccountHistory = createRPCMethodWrapper<types.AccounHistory[], [types.GetAccountHistoryParams]>('getAccountHistory')
+  const getAccountAssets = createRPCMethodWrapper<string[], [string]>('getAccountAssets')
 
   // Asset queries
-  const getAsset = createMethodWrapper<types.AssetData, [types.GetAssetParams]>('getAsset')
-  const getAssets = createMethodWrapper<string[], [types.GetAssetsParams?]>('getAssets')
+  const getAsset = async (params: types.GetAssetParams) => {
+    return await daemonRef.current.dataCall("get_asset", params)
+  }
+  const getAssets = createRPCMethodWrapper<string[], [types.GetAssetsParams?]>('getAssets')
 
   // Smart contract queries
-  const getContractData = async (params: types.GetContractDataPrams) => {
+  const getContractData = async (params: types.GetContractDataParams) => {
     const res = await daemonRef.current.dataCall("get_contract_data", params)
-    return res
+    return responseTransformers.contractDataTransformer(res)
   }
-  const getContractBalance = createMethodWrapper<types.GetContractBalanceResult, [types.GetContractBalanceParams]>('getContractBalance')
-  const getContractModule = createMethodWrapper<types.GetContractModuleResult, [types.GetContractModuleParams]>('getContractModule')
+  const getContractBalance = createRPCMethodWrapper<types.GetContractBalanceResult, [types.GetContractBalanceParams]>('getContractBalance')
+  const getContractModule = createContractMethodWrapper<types.GetContractModuleResult, [types.GetContractModuleParams]>('getContractModule')
   const getContractAssets = async (contract: string) => {
     const res = await daemonRef.current.dataCall("get_contract_assets", {contract})
     return res
   }
 
   // Utility
-  const validateAddress = createMethodWrapper<types.ValidateAddressResult, [types.ValidateAddressParams]>('validateAddress')
+  const validateAddress = createRPCMethodWrapper<types.ValidateAddressResult, [types.ValidateAddressParams]>('validateAddress')
 
 
   // Auto-connect on mount
