@@ -1,4 +1,4 @@
-import { type AddLiquidityParams } from "./types";
+import * as types from "./types";
 import { vmParam, createContractInvocation } from "@/utils/xvmSerializer";
 
 /**
@@ -12,7 +12,7 @@ import { vmParam, createContractInvocation } from "@/utils/xvmSerializer";
  * @param {number} params.maxGas - Maximum gas to use for the transaction
  * @returns {Object} Transaction data object
  */
-export const createAddLiquidityTransaction = (params: AddLiquidityParams): Record<string, any> => {
+export const createAddLiquidityTransaction = (params: types.AddLiquidityParams): Record<string, any> => {
   const { routerContract, token1Hash, token2Hash, token1Amount, token2Amount, maxGas = 200000000 } = params;
 
   return createContractInvocation({
@@ -29,3 +29,59 @@ export const createAddLiquidityTransaction = (params: AddLiquidityParams): Recor
     }
   })
 }
+
+/**
+ * Creates a transaction to remove liquidity from a pair
+ * @param params - Parameters for liquidity removal
+ * @returns Transaction data object
+ */
+export const createRemoveLiquidityTransaction = (params: types.RemoveLiquidityParams): Record<string, any> => {
+  const { 
+    contract, 
+    liquidityTokenHash, 
+    liquidityAmount,
+    maxGas = 200000000 
+  } = params;
+
+  return createContractInvocation({
+    contract,
+    chunkId: 11,
+    parameters: [
+      vmParam.hash(liquidityTokenHash)
+    ],
+    deposits: {
+      [liquidityTokenHash]: liquidityAmount
+    },
+    maxGas
+  });
+};
+
+/**
+ * Creates a transaction to swap tokens
+ * @param params - Parameters for token swap
+ * @returns Transaction data object
+ */
+export const createSwapTransaction = (params: types.SwapParams): Record<string, any> => {
+  const { 
+    contract, 
+    tokenInHash, 
+    tokenOutHash, 
+    amountIn,
+    amountOutMin,
+    maxGas = 200000000 
+  } = params;
+
+  return createContractInvocation({
+    contract,
+    chunkId: 12,
+    parameters: [
+      vmParam.hash(tokenInHash),
+      vmParam.hash(tokenOutHash),
+      vmParam.u64(amountOutMin)
+    ],
+    deposits: {
+      [tokenInHash]: amountIn
+    },
+    maxGas
+  });
+};

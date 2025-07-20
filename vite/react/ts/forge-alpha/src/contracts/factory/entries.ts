@@ -1,50 +1,13 @@
 import { NATIVE_ASSET_HASH } from '@/contexts/NodeContext';
 import { vmParam, createContractInvocation, createContractDeployment, createDeposits } from '@/utils/xvmSerializer';
-
-// Define the token contract interface types
-export interface CreateTokenParams {
-  contract: string;
-  name: string;
-  ticker: string;
-  decimals: number;
-  supply: number;
-  mintable: boolean;
-  maxSupply: number;
-  maxGas?: number;
-}
-
-export interface MintTokensParams {
-  contract: string;
-  assetHash: string;
-  mintAmount: number;
-  maxGas?: number;
-}
-
-export interface TransferOwnershipParams {
-  contract: string;
-  assetHash: string;
-  ownerAddress: string;
-  maxGas?: number;
-}
-
-export interface RenounceOwnershipParams {
-  contract: string;
-  assetHash: string;
-  maxGas?: number;
-}
-
-export interface DeployContractParams {
-  bytecode: string;
-  hasConstructor?: boolean;
-  maxGas?: number;
-}
+import type * as types from './types';
 
 /**
  * Creates a transaction to create a new token
  * @param params - Parameters for token creation
  * @returns Transaction data object
  */
-export const createTokenTransaction = (params: CreateTokenParams): Record<string, any> => {
+export const createTokenTransaction = (params: types.CreateTokenParams): Record<string, any> => {
   const { 
     contract, 
     name, 
@@ -82,7 +45,7 @@ export const createTokenTransaction = (params: CreateTokenParams): Record<string
  * @param params - Parameters for token minting
  * @returns Transaction data object
  */
-export const createMintTokensTransaction = (params: MintTokensParams): Record<string, any> => {
+export const createMintTokensTransaction = (params: types.MintTokensParams): Record<string, any> => {
   const { contract, assetHash, mintAmount, maxGas = 200000000 } = params;
 
   return createContractInvocation({
@@ -101,7 +64,7 @@ export const createMintTokensTransaction = (params: MintTokensParams): Record<st
  * @param params - Parameters for ownership transfer
  * @returns Transaction data object
  */
-export const createTransferOwnershipTransaction = (params: TransferOwnershipParams): Record<string, any> => {
+export const createTransferOwnershipTransaction = (params: types.TransferOwnershipParams): Record<string, any> => {
   const { contract, assetHash, ownerAddress, maxGas = 200000000 } = params;
 
   return createContractInvocation({
@@ -120,7 +83,7 @@ export const createTransferOwnershipTransaction = (params: TransferOwnershipPara
  * @param params - Parameters for ownership renouncement
  * @returns Transaction data object
  */
-export const createRenounceOwnershipTransaction = (params: RenounceOwnershipParams): Record<string, any> => {
+export const createRenounceOwnershipTransaction = (params: types.RenounceOwnershipParams): Record<string, any> => {
   const { contract, assetHash, maxGas = 200000000 } = params;
 
   return createContractInvocation({
@@ -138,7 +101,7 @@ export const createRenounceOwnershipTransaction = (params: RenounceOwnershipPara
  * @param params - Parameters for contract deployment
  * @returns Transaction data object
  */
-export const createDeployContractTransaction = (params: DeployContractParams): Record<string, any> => {
+export const createDeployContractTransaction = (params: types.DeployContractParams): Record<string, any> => {
   const { bytecode, hasConstructor = false, maxGas = 200000000 } = params;
 
   return createContractDeployment({
