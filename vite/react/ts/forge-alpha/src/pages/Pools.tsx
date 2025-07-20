@@ -61,7 +61,7 @@ const Pools = () => {
     awaitTx
   } = useNode()
 
-  const { addContractInvocation } = useTransactionContext()
+  const { awaitContractInvocation } = useTransactionContext()
   
   // Screen state
   const [currentScreen, setCurrentScreen] = useState(SCREENS.LIST)
@@ -75,8 +75,10 @@ const Pools = () => {
   const {activePools, setActivePools} = usePools();
   const [assetBalances, setAssetBalances] = useState({})
   const [loadingAssets, setLoadingAssets] = useState(false)
+
+  // Mount ping
   const [refresh, setRefresh] = useState(false)
-  
+
   // Liquidity state
   const [tokenSelection, setTokenSelection] = useState({
     token1Hash: '',
@@ -130,11 +132,7 @@ const Pools = () => {
     if (routerContract) {
       loadLPList()
     }
-  }, [isConnected, routerContract])
-
-  useEffect(() => {
-
-  }, [refresh])
+  }, [isConnected, routerContract, refresh])
 
   // Load assets from wallet
   const loadWalletAssets = async () => {
@@ -330,12 +328,12 @@ const Pools = () => {
 
       const txBuilder: any = await buildTransaction(txData)
 
-      addContractInvocation(txBuilder.hash, routerContract, (status, hash) => {
+      awaitContractInvocation(txBuilder.hash, routerContract, async (status, hash) => {
         console.log(`Tx ${hash} completed with status: ${status}`)
         setTxHash(hash as any)
+        setRefresh(!refresh)
 
         if (status === 'executed') {
-          loadLPList()
           if (currentScreenRef.current == SCREENS.CONFIRM) {
             goToScreen(SCREENS.SUCCESS)            
           }

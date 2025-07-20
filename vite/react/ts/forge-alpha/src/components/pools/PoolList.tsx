@@ -50,7 +50,7 @@ export const PoolList = ({
             className="bg-black/70 rounded-xl px-2 py-2 border border-white/12 hover:border-white/30 transition-all cursor-pointer overflow-hidden"
           >
             {/* Top row: Info + Icons + My Share */}
-            <div className="relative min-h-14 flex items-center">
+            <div className="relative min-h-16 flex items-center">
               {/* Left: Pool Info */}
               <div className="ml-2 z-10">
                 <div className="text-white font-medium">{pool.name}</div>
@@ -62,17 +62,17 @@ export const PoolList = ({
               {/* Center: Diagonal Icons */}
               <div className="absolute left-1/2 -translate-x-1/2 z-0">
                 <div className="relative w-fit h-fit">
-                  <div className="-mb-2 -ml-5">
-                    <TokenIcon tokenSymbol={pool.tickers[0]} tokenName={pool.names[0]} size={36} />
+                  <div className="-ml-4">
+                    <TokenIcon tokenSymbol={pool.tickers[0]} tokenName={pool.names[0]} size={39} />
                   </div>
-                  <div className="-mt-2 -mr-4">
-                    <TokenIcon tokenSymbol={pool.tickers[1]} tokenName={pool.names[1]} size={36} />
+                  <div className="-mt-2.5 -mr-4">
+                    <TokenIcon tokenSymbol={pool.tickers[1]} tokenName={pool.names[1]} size={39} />
                   </div>
                 </div>
               </div>
 
               {/* Right: My Share */}
-              <div className="ml-auto text-right text-forge-orange text-md z-10">
+              <div className="ml-auto mr-2 text-right text-forge-orange text-md z-10">
                 LP Share: <span className='text-white font-bold text-md'>{pool.userShare ?? '--'}%</span>
               </div>
             </div>

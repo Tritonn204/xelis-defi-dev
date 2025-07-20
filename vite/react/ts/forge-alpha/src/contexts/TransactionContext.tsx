@@ -14,7 +14,7 @@ interface TrackedTx {
 
 interface TransactionContextType {
   transactions: TrackedTx[]
-  addContractInvocation: (hash: string, contract: string, callback?: TxCallback) => void
+  awaitContractInvocation: (hash: string, contract: string, callback?: TxCallback) => void
   updateTransaction: (hash: string, status: TransactionStatus) => void
 }
 
@@ -32,7 +32,7 @@ export const TransactionProvider = ({ children }: { children: ReactNode }) => {
 
   const { getContractOutputs, awaitTx } = useNode()
 
-  const addContractInvocation = (txHash: string, contract: string, callback?: TxCallback) => {
+  const awaitContractInvocation = (txHash: string, contract: string, callback?: TxCallback) => {
     if (callback) {
       txCallbacksRef.current.set(txHash, callback)
     }
@@ -64,7 +64,7 @@ export const TransactionProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <TransactionContext.Provider value={{ transactions, addContractInvocation, updateTransaction }}>
+    <TransactionContext.Provider value={{ transactions, awaitContractInvocation, updateTransaction }}>
       {children}
     </TransactionContext.Provider>
   )
