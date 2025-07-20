@@ -4,6 +4,8 @@ import XSWD from '@xelis/sdk/xswd/websocket.js'
 import { type ApplicationData } from '@xelis/sdk/xswd/types.js'
 import { objectToHex } from '../utils/data'
 
+import * as types from '@xelis/sdk/wallet/types'
+
 interface WalletState {
   isConnected: boolean
   address: string | null
@@ -11,6 +13,7 @@ interface WalletState {
   network: string | null
   connecting: boolean
   error: string | null
+  subscribedEvents: string[]
 }
 
 interface WalletContextType extends WalletState {
@@ -19,7 +22,13 @@ interface WalletContextType extends WalletState {
   updateBalance: () => Promise<void>
   getAssets: () => Promise<Map<string, number>>
   getBalance: (hash: string | undefined) => Promise<string>
+  getRawBalance: (hash: string | undefined) => Promise<BigInt>
+  clearTxCache: () => Promise<void>
   buildAndSubmitTransaction: (txData: object) => Promise<object>
+  buildTransaction: (txData: object) => Promise<object>
+  submitTransaction: (txData: object) => Promise<object>
+  subscribeToWalletEvent: (event: types.RPCEvent, callback: (data: any) => void) => void
+  unsubscribeFromWalletEvent: (event: types.RPCEvent) => void
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined)
@@ -30,7 +39,8 @@ const initialState: WalletState = {
   xelBalance: null,
   network: null,
   connecting: false,
-  error: null
+  error: null,
+  subscribedEvents: [],
 }
 
 type WalletAction = 
@@ -39,6 +49,8 @@ type WalletAction =
   | { type: 'CONNECT_ERROR'; payload: string }
   | { type: 'DISCONNECT' }
   | { type: 'UPDATE_BALANCE'; payload: string }
+  | { type: 'EVENT_SUBSCRIBED'; payload: string }
+  | { type: 'EVENT_UNSUBSCRIBED'; payload: string }
 
 const walletReducer = (state: WalletState, action: WalletAction): WalletState => {
   switch (action.type) {
@@ -70,6 +82,16 @@ const walletReducer = (state: WalletState, action: WalletAction): WalletState =>
         ...state,
         xelBalance: action.payload
       }
+    case 'EVENT_SUBSCRIBED':
+      return {
+        ...state,
+        subscribedEvents: [...state.subscribedEvents, action.payload]
+      }
+    case 'EVENT_UNSUBSCRIBED':
+      return {
+        ...state,
+        subscribedEvents: state.subscribedEvents.filter(event => event !== action.payload)
+      }
     default:
       return state
   }
@@ -78,6 +100,7 @@ const walletReducer = (state: WalletState, action: WalletAction): WalletState =>
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(walletReducer, initialState)
   const xswdRef = useRef<XSWD | null>(null)
+  const eventCallbacksRef = useRef<Map<string, (data: any) => void>>(new Map())
 
   const generateSessionAppId = () => {
     const prefix = '666f726765' // "forge" in hex (10 chars)
@@ -123,6 +146,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           "get_asset", 
           "get_assets", 
           "network_info",
+          "clear_tx_cache",
         ]
       }
 
@@ -213,32 +237,98 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
-const buildAndSubmitTransaction = async (txData: object) => {
-  if (!xswdRef.current || !state.isConnected) {
-    throw new Error('Wallet not connected');
+  const getRawBalance = async (assetHash?: string) => {
+    if (!xswdRef.current || !state.isConnected) return '0'
+
+    try {
+      return await xswdRef.current.wallet.getBalance(assetHash) || 0
+    } catch (error) {
+      console.error('Error getting balance:', error)
+      return '0'
+    }
   }
-  
-  try {
-    // Build the transaction
-    const txResult = await xswdRef.current.wallet.buildTransaction({
-      ...txData
-    });
-    
-    console.log("Transaction built successfully:", txResult)
-    // console.log("Hex Data", txResult.tx_as_hex)
-    
-    // const submitResult = await xswdRef.current.daemon.submitTransaction(txResult.tx_as_hex)
-    // console.log("RESULT", submitResult)
-    
-    return {
-      success: !!txResult,
-      hash: txResult.hash
-    };
-  } catch (error: any) {
-    console.error('Transaction error:', error);
-    throw new Error(error?.message || error || 'Failed to submit transaction');
+
+  const clearTxCache = async () => {
+    await xswdRef.current.wallet.clearTxCache()
   }
-};
+
+  const buildAndSubmitTransaction = async (txData: object) => {
+    if (!xswdRef.current || !state.isConnected) {
+      throw new Error('Wallet not connected');
+    }
+    
+    try {
+      const txResult = await xswdRef.current.wallet.buildTransaction({
+        ...txData,
+        broadcast: true
+      });
+                  
+      return {
+        success: !!txResult,
+        hash: txResult.hash
+      };
+    } catch (error: any) {
+      throw new Error(error?.message || error || 'Failed to build+submit transaction');
+    }
+  };
+
+  const buildTransaction = async (txData: object) => {
+    if (!xswdRef.current || !state.isConnected) {
+      throw new Error('Wallet not connected');
+    }
+    
+    try {
+      const txResult = await xswdRef.current.wallet.buildTransaction({
+        ...txData,
+        broadcast: false,
+        tx_as_hex: true
+      });
+      
+      return txResult
+    } catch (error: any) {
+      throw new Error(error?.message || error || 'Failed to build transaction');
+    }
+  };
+
+  const submitTransaction = async (txData: any) => {
+    if (!xswdRef.current || !state.isConnected) {
+      throw new Error('Wallet not connected');
+    }
+    
+    try {
+      const submitResult = await xswdRef.current.daemon.submitTransaction(txData.tx_as_hex)
+      
+      return {
+        success: !!submitResult,
+        hash: txData.hash
+      };
+    } catch (error: any) {
+      throw new Error(error?.message || error || 'Failed to submit transaction');
+    }
+  };
+
+  const subscribeToWalletEvent = (event: types.RPCEvent, callback: (data: any) => void) => {
+    if (!xswdRef.current) {
+      console.warn('Cannot subscribe to event: not connected')
+      return
+    }
+
+    eventCallbacksRef.current.set(event, callback)
+    xswdRef.current.wallet.ws.listenEvent(event, callback)
+    console.log("subscribed to", event)
+    dispatch({ type: 'EVENT_SUBSCRIBED', payload: event })
+  }
+
+  const unsubscribeFromWalletEvent = (event: types.RPCEvent) => {
+    if (!xswdRef.current) return
+
+    const callback = eventCallbacksRef.current.get(event)
+    if (callback) {
+      xswdRef.current.off(event, callback)
+      eventCallbacksRef.current.delete(event)
+      dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
+    }
+  }
 
   // Cleanup on unmount
   useEffect(() => {
@@ -258,7 +348,13 @@ const buildAndSubmitTransaction = async (txData: object) => {
       updateBalance,
       getAssets,
       getBalance,
-      buildAndSubmitTransaction
+      getRawBalance,
+      clearTxCache,
+      buildAndSubmitTransaction,
+      buildTransaction,
+      submitTransaction,
+      subscribeToWalletEvent,
+      unsubscribeFromWalletEvent
     }}>
       {children}
     </WalletContext.Provider>

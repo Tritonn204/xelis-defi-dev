@@ -1,7 +1,9 @@
+import { type AddLiquidityParams } from "./router/interface";
+
 /**
  * Creates a transaction to add liquidity to a pool
  * @param {Object} params - Parameters for adding liquidity
- * @param {string} params.routerAddress - Address of the router contract
+ * @param {string} params.routerContract - Address of the router contract
  * @param {string} params.token1Hash - Hash of the first token
  * @param {string} params.token2Hash - Hash of the second token
  * @param {number} params.token1Amount - Amount of the first token (in smallest units)
@@ -9,14 +11,14 @@
  * @param {number} params.maxGas - Maximum gas to use for the transaction
  * @returns {Object} Transaction data object
  */
-export const createAddLiquidityTransaction = (params) => {
-  const { routerAddress, token1Hash, token2Hash, token1Amount, token2Amount, maxGas = 200000000 } = params;
+export const createAddLiquidityTransaction = (params: AddLiquidityParams): Record<string, any> => {
+  const { routerContract, token1Hash, token2Hash, token1Amount, token2Amount, maxGas = 500000000 } = params;
 
   // Match the structure from the Dart SDK
   return {
     invoke_contract: {
-      contract: routerAddress,
-      max_gas: parseInt(maxGas),
+      contract: routerContract,
+      max_gas: maxGas,
       chunk_id: 10,
       parameters: [
         { 
@@ -45,9 +47,8 @@ export const createAddLiquidityTransaction = (params) => {
         [token2Hash]: { amount: token2Amount }
       }
     },
-    broadcast: true
   };
-};
+}
 
 /**
  * Converts a hex string to a byte array
@@ -73,7 +74,7 @@ export const hexToBytes = (hex: string) => {
  * @param {number} decimals - Number of decimals for the token
  * @returns {number} Amount in smallest units for the contract
  */
-export const formatAmountForContract = (amount: string | number, decimals: number) => {
+export const formatAmountForContract = (amount: string|number, decimals: number) => {
   if (!amount) return 0
   const parsedAmount = parseFloat(amount as string)
   if (isNaN(parsedAmount)) return 0
@@ -89,4 +90,15 @@ export const formatAmountForContract = (amount: string | number, decimals: numbe
 export const formatAmountForDisplay = (amount: number, decimals: number) => {
   if (!amount) return '0'
   return (amount / Math.pow(10, decimals)).toFixed(Math.min(decimals, 8))
+}
+
+export const getExitCodeFromOutputs = (
+  outputs: Array<{ exit_code: number | null }>
+): number | null => {
+  for (const output of outputs) {
+    if (typeof output === 'object' && 'exit_code' in output && output.exit_code !== null) {
+      return output.exit_code
+    }
+  }
+  return null
 }

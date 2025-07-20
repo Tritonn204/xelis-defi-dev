@@ -1,7 +1,7 @@
 import React from 'react'
 
 import '../ui/num_nospinner.css'
-import { stringToColor } from '../../utils/strings'
+import { TokenIcon } from '../ui/TokenIcon';
 
 const TokenInput = ({ 
   label, 
@@ -13,8 +13,6 @@ const TokenInput = ({
   price,
   tickerWidth = 6
 }) => {
-  const tokenColor = stringToColor(tokenSymbol + tokenName)
-  const firstLetter = tokenSymbol?.charAt(0) || '?'
   const fiatValue = parseFloat(amount || 0) * (price || 0)
   const showFiatValue = amount && !isNaN(fiatValue) && fiatValue > 0
   
@@ -41,12 +39,7 @@ const TokenInput = ({
           
           {/* Right side - Icon and ticker, vertically centered with input */}
           <div className="flex items-center space-x-2 ml-4">
-            <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold"
-              style={{ backgroundColor: tokenColor }}
-            >
-              {firstLetter}
-            </div>
+            <TokenIcon tokenSymbol={tokenSymbol} tokenName={tokenName} size={36}/>
             <span 
               className="text-white font-medium text-right"
               style={{ minWidth: `${tickerWidth}ch` }}

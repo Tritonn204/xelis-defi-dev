@@ -1,9 +1,15 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+
+import { TokenIcon } from '../ui/TokenIcon';
+import { formatCompactNumber } from '../../utils/number';
 
 export interface PoolData {
-  name: string;
-  tvl: number;
-  userShare: string | undefined;
+  name: string
+  tvl: number
+  tickers: [string, string]
+  names: [string, string]
+  locked: [number, number]
+  userShare: string | undefined
 }
 
 interface PoolListProps {
@@ -13,12 +19,15 @@ interface PoolListProps {
 export const PoolList = ({
   pools = new Map<string, PoolData>()
 }: PoolListProps) => {
-
+  const [expandedPools, setExpandedPools] = useState<Set<string>>(new Set());
+  const togglePool = (key: string) => {
+    setExpandedPools(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
   const poolEntries = Array.from(pools.entries());
-
-  useEffect(() => {
-    console.log('Pool entries:', poolEntries);
-  }, [pools]);
 
   if (poolEntries.length === 0) {
     return (
@@ -29,28 +38,65 @@ export const PoolList = ({
   }
 
   return (
-    <div className="space-y-3">
-      {poolEntries.map(([key, pool]) => (
-        <div 
-          key={key}
-          className="bg-black/70 rounded-xl p-3 border border-white/12 hover:border-white/30 transition-all cursor-pointer"
-        >
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <div className="mr-2">
-                {/* Pool icons would go here */}
-              </div>
-              <div>
+    <div className="space-y-2">
+      {poolEntries.map(([key, pool]) => {
+        const isExpanded = expandedPools.has(key);
+
+        return (
+          <div
+            key={key}
+            onClick={() => togglePool(key)}
+            className="bg-black/70 rounded-xl px-2 py-2 border border-white/12 hover:border-white/30 transition-all cursor-pointer overflow-hidden"
+          >
+            {/* Top row: Info + Icons + My Share */}
+            <div className="relative min-h-14 flex items-center">
+              {/* Left: Pool Info */}
+              <div className="ml-2 z-10">
                 <div className="text-white font-medium">{pool.name}</div>
-                <div className="text-gray-400 text-sm">TVL: ${pool.tvl.toLocaleString()}</div>
+                <div className="text-forge-orange text-sm">
+                  TVL: ${pool.tvl.toLocaleString()}
+                </div>
+              </div>
+
+              {/* Center: Diagonal Icons */}
+              <div className="absolute left-1/2 -translate-x-1/2 z-0">
+                <div className="relative w-fit h-fit">
+                  <div className="-mb-2 -ml-5">
+                    <TokenIcon tokenSymbol={pool.tickers[0]} tokenName={pool.names[0]} size={36} />
+                  </div>
+                  <div className="-mt-2 -mr-4">
+                    <TokenIcon tokenSymbol={pool.tickers[1]} tokenName={pool.names[1]} size={36} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: My Share */}
+              <div className="ml-auto text-right text-forge-orange text-md z-10">
+                LP Share: <span className='text-white font-bold text-md'>{pool.userShare ?? '--'}%</span>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-gray-400 text-sm">My share: {pool.userShare ?? '--'}%</div>
+
+            {/* Expandable section */}
+            <div
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                isExpanded ? 'max-h-40 mt-3 opacity-100' : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="bg-black/50 rounded-md p-2 text-sm text-gray-300 space-y-1">
+                {pool.locked.map((amount, index) => {
+                  const symbol = pool.tickers[index];
+                  const formatted = formatCompactNumber(amount);
+                  return (
+                    <div key={index}>
+                      {symbol} – {formatted}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

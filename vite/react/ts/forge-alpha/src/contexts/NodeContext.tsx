@@ -57,8 +57,8 @@ interface NodeContextType extends NodeState {
   switchNode: (nodeIndex: number) => Promise<void>
   disconnect: () => void
   deleteCustomNetwork: (networkId: string) => void
-  subscribeToEvent: (event: types.RPCEvent, callback: (data: any) => void) => void
-  unsubscribeFromEvent: (event: types.RPCEvent) => void
+  subscribeToNodeEvent: (event: types.RPCEvent, callback: (data: any) => void) => void
+  unsubscribeFromNodeEvent: (event: types.RPCEvent) => void
   
   // Network queries
   getInfo: () => Promise<types.GetInfoResult>
@@ -71,7 +71,7 @@ interface NodeContextType extends NodeState {
   getTopBlock: (params?: types.GetTopBlockParams) => Promise<types.Block>
   
   // Transaction queries
-  getTransaction: (hash: string) => Promise<types.TransactionResponse>
+  getTransaction: (params: types.GetTransactionParams) => Promise<types.TransactionResponse>
   getTransactions: (txHashes: string[]) => Promise<types.TransactionResponse[]>
   getMempool: (params?: types.GetMempoolParams) => Promise<types.GetMempoolResult>
   getEstimatedFeeRates: () => Promise<types.FeeRatesEstimated>
@@ -83,7 +83,9 @@ interface NodeContextType extends NodeState {
   
   // Asset queries
   getAsset: (params: types.GetAssetParams) => Promise<types.AssetData>
+  getAssetSupply: (params: types.GetAssetParams) => Promise<any>
   getAssets: (params?: types.GetAssetsParams) => Promise<string[]>
+  getContractOutputs: (params: any) => Promise<any>
   
   // Smart contract queries
   getContractData: (params: types.GetContractDataParams) => Promise<types.GetContractDataResult>
@@ -97,6 +99,8 @@ interface NodeContextType extends NodeState {
   
   availableNetworks: NetworkType[]
   availableNodes: NodeConfig[] | 'custom'
+  awaitTx: (txHash: string, callback: () => void) => void
+  recentBlocks: types.Block[]
 }
 
 const NodeContext = createContext<NodeContextType | undefined>(undefined)
@@ -189,6 +193,8 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const eventCallbacksRef = useRef<Map<string, (data: any) => void>>(new Map())
   const reconnectTimeoutRef = useRef<number | null>(null)
   const customNetworksRef = useRef<Map<string, CustomNetworkConfig>>(new Map())
+  const recentBlocksRef = useRef<types.Block[]>([])
+  const txWatchQueueRef = useRef<Map<string, () => void>>(new Map())
 
   // Macro-like method wrapper with proper TypeScript generics
   const createRPCMethodWrapper = <TReturn, TParams extends any[] = []>(
@@ -284,6 +290,10 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     await connectToNetwork(state.currentNetwork)
   }
 
+  const awaitTx = (txHash: string, callback: () => void) => {
+    txWatchQueueRef.current.set(txHash, callback)
+  }
+
   const disconnect = async () => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current)
@@ -323,7 +333,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
-  const subscribeToEvent = (event: types.RPCEvent, callback: (data: any) => void) => {
+  const subscribeToNodeEvent = (event: types.RPCEvent, callback: (data: any) => void) => {
     if (!daemonRef.current) {
       console.warn('Cannot subscribe to event: not connected')
       return
@@ -335,7 +345,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'EVENT_SUBSCRIBED', payload: event })
   }
 
-  const unsubscribeFromEvent = (event: types.RPCEvent) => {
+  const unsubscribeFromNodeEvent = (event: types.RPCEvent) => {
     if (!daemonRef.current) return
 
     const callback = eventCallbacksRef.current.get(event)
@@ -357,7 +367,10 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const getTopBlock = createRPCMethodWrapper<types.Block, [types.GetTopBlockParams?]>('getTopBlock')
 
   // Transaction queries
-  const getTransaction = createRPCMethodWrapper<types.TransactionResponse, [string]>('getTransaction')
+  // const getTransaction = createRPCMethodWrapper<types.TransactionResponse, [types.GetTransactionParams]>('getTransaction')
+  const getTransaction = async (params: types.GetTransactionParams) => {
+    return await daemonRef.current.dataCall("get_transaction", params)
+  }
   const getTransactions = createRPCMethodWrapper<types.TransactionResponse[], [string[]]>('getTransactions')
   const getMempool = createRPCMethodWrapper<types.GetMempoolResult, [types.GetMempoolParams?]>('getMemPool')
   const getEstimatedFeeRates = createRPCMethodWrapper<types.FeeRatesEstimated>('getEstimatedFeeRates')
@@ -371,6 +384,9 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const getAsset = async (params: types.GetAssetParams) => {
     return await daemonRef.current.dataCall("get_asset", params)
   }
+  const getAssetSupply = async (params: types.GetAssetParams) => {
+    return await daemonRef.current.dataCall("get_asset_supply", params)
+  }
   const getAssets = createRPCMethodWrapper<string[], [types.GetAssetsParams?]>('getAssets')
 
   // Smart contract queries
@@ -378,10 +394,17 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     const res = await daemonRef.current.dataCall("get_contract_data", params)
     return responseTransformers.contractDataTransformer(res)
   }
-  const getContractBalance = createRPCMethodWrapper<types.GetContractBalanceResult, [types.GetContractBalanceParams]>('getContractBalance')
+  const getContractBalance = async (params: types.GetContractBalanceParams) => {
+    const res = await daemonRef.current.dataCall("get_contract_balance", params)
+    return res
+  }
   const getContractModule = createContractMethodWrapper<types.GetContractModuleResult, [types.GetContractModuleParams]>('getContractModule')
   const getContractAssets = async (contract: string) => {
     const res = await daemonRef.current.dataCall("get_contract_assets", {contract})
+    return res
+  }
+  const getContractOutputs = async (params: any) => {
+    const res = await daemonRef.current.dataCall("get_contract_outputs", params)
     return res
   }
 
@@ -411,21 +434,39 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   }, [state.currentNetwork])
 
   const handleNewBlock = (data: any) => {
-    // TODO
-    console.log("new block", data)
+    const blockData = JSON.parse(data.data)?.result
+    recentBlocksRef.current = [blockData, ...recentBlocksRef.current].slice(0, 3)
+
+    // Check if any watched txs are in this block
+    const seenTxs = blockData.txs_hashes || []
+
+    for (const txHash of seenTxs) {
+      const callback = txWatchQueueRef.current.get(txHash)
+      if (callback) {
+        try {
+          callback()
+        } catch (err) {
+          console.error(`Callback for TX ${txHash} failed:`, err)
+        }
+        txWatchQueueRef.current.delete(txHash)
+      }
+    }
+
+
+    console.log(blockData)
+    console.log("Updated recent blocks:", recentBlocksRef.current.map(b => b.hash))
   }
 
   const handleStableHeight = (data: any) => {
     // TODO
-    console.log("new stable height", data)
   }
 
   // Always subscribe to these global events
   useEffect(() => {
     if (daemonRef.current) {
       // Global events that benefit the entire app
-      subscribeToEvent(types.RPCEvent.NewBlock, handleNewBlock)
-      subscribeToEvent(types.RPCEvent.StableHeightChanged, handleStableHeight)
+      subscribeToNodeEvent(types.RPCEvent.NewBlock, handleNewBlock)
+      subscribeToNodeEvent(types.RPCEvent.StableHeightChanged, handleStableHeight)
     }
   }, [state.isConnected])
 
@@ -667,8 +708,8 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       switchNode,
       disconnect,
       deleteCustomNetwork,
-      subscribeToEvent,
-      unsubscribeFromEvent,
+      subscribeToNodeEvent,
+      unsubscribeFromNodeEvent,
       getInfo,
       getHeight,
       getTopoheight,
@@ -683,7 +724,9 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       getAccountHistory,
       getAccountAssets,
       getAsset,
+      getAssetSupply,
       getAssets,
+      getContractOutputs,
       getContractData,
       getContractBalance,
       getContractModule,
@@ -691,7 +734,9 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       validateAddress,
       generateNetworkId,
       availableNetworks,
-      availableNodes
+      availableNodes,
+      awaitTx,
+      recentBlocks: recentBlocksRef.current
     }}>
       {children}
     </NodeContext.Provider>

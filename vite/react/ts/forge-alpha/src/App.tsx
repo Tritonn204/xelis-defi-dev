@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WalletProvider } from './contexts/WalletContext'
 import { TokenProvider } from './contexts/TokenContext'
 import { NodeProvider } from './contexts/NodeContext'
+import { PoolProvider } from './contexts/PoolContext'
 
 import Layout from './components/layout/Layout'
 import Trade from './pages/Trade'
@@ -18,20 +19,22 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <NodeProvider>
         <WalletProvider>
-          <TokenProvider>
-            <Router>
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<Trade />} />
-                  <Route path="/trade" element={<Trade />} />
-                  <Route path="/pools" element={<Pools />} />
-                  {/* 
-                  <Route path="/tools" element={<Tools />} />
-                  <Route path="/bridge" element={<Bridge />} /> */}
-                </Routes>
-              </Layout>
-            </Router>
-          </TokenProvider>
+          <PoolProvider>
+            <TokenProvider>
+              <Router>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Trade />} />
+                    <Route path="/trade" element={<Trade />} />
+                    <Route path="/pools" element={<Pools />} />
+                    {/* 
+                    <Route path="/tools" element={<Tools />} />
+                    <Route path="/bridge" element={<Bridge />} /> */}
+                  </Routes>
+                </Layout>
+              </Router>
+            </TokenProvider>
+          </PoolProvider>
         </WalletProvider>
       </NodeProvider>
     </QueryClientProvider>

@@ -40,15 +40,15 @@ const TokenContext = createContext<TokenContextType | undefined>(undefined)
 const initialState: TokenState = {
   tokens: {
     XEL: {
-      symbol: 'XEL',
-      name: 'Xelis',
+      symbol: 'XET',
+      name: 'XELIS',
       balance: '0',
       price: 1.79,
       logo: '/path/to/xel-logo.png'
     },
     SUGG: {
       symbol: 'SUGG',
-      name: 'suggs93 Coin',
+      name: 'suggs93',
       balance: '0',
       price: 1.79,
       logo: '/path/to/sugg-logo.png'

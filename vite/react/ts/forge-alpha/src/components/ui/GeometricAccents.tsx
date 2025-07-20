@@ -12,7 +12,8 @@ const GeometricAccents = ({
   glassEffect = false,
   gradient = false,
   gradientBurn = 0.3,
-  blendMode = 'normal'
+  blendMode = 'normal',
+  isLoading = false
 }) => {
   const contentRef = useRef(null)
   const [contentHeight, setContentHeight] = useState(0)
@@ -119,7 +120,11 @@ const GeometricAccents = ({
               </linearGradient>
             </defs>
           )}
-          <path d={leftTipPath} fill={fillColor} />
+          <path
+            d={leftTipPath}
+            fill={fillColor}
+            className={isLoading ? 'fill-pulse' : ''}
+          />
         </svg>
       </div>
       
@@ -149,7 +154,11 @@ const GeometricAccents = ({
               </linearGradient>
             </defs>
           )}
-          <path d={rightTipPath} fill={gradient ? `url(#${gradientId}-right)` : color} />
+          <path 
+            d={rightTipPath} 
+            fill={gradient ? `url(#${gradientId}-right)` : color}
+            className={isLoading ? 'fill-pulse' : ''}
+          />
         </svg>
       </div>
     </div>

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, createContext } from 'react'
 import { useWallet } from '../contexts/WalletContext'
 import { useNode } from '../contexts/NodeContext'
+import { usePools } from '../contexts/PoolContext';
+
 import { Settings } from 'lucide-react'
 import Button from '../components/ui/Button'
 import GeometricAccents from '../components/ui/GeometricAccents'
@@ -8,7 +10,12 @@ import LiquidityInput from '../components/pools/LiquidityInput'
 import { PoolList, type PoolData } from '../components/pools/PoolList'
 import PoolStats from '../components/pools/PoolStats'
 import { ArrowLeft } from 'lucide-react'
-import { createAddLiquidityTransaction } from '../utils/contractHelpers'
+import { createAddLiquidityTransaction, getExitCodeFromOutputs } from '../utils/contracts'
+
+import * as daemonTypes from '@xelis/sdk/daemon/types'
+import * as walletTypes from '@xelis/sdk/wallet/types'
+
+import Decimal from 'decimal.js'
 
 // Screen state management
 const SCREENS = {
@@ -31,8 +38,12 @@ const Pools = () => {
     address, 
     xelBalance ,
     buildAndSubmitTransaction,
+    buildTransaction,
+    submitTransaction,
+    clearTxCache,
     getBalance,
-    getAssets
+    getRawBalance,
+    getAssets,
   } = useWallet()
   const { 
     currentNetwork, 
@@ -40,7 +51,13 @@ const Pools = () => {
     customNetworks,
     getContractData,
     getContractAssets,
-    getAsset
+    getAsset,
+    getAssetSupply,
+    getTransaction,
+    getContractOutputs,
+    subscribeToNodeEvent,
+    unsubscribeFromNodeEvent,
+    awaitTx
   } = useNode()
   
   // Screen state
@@ -48,9 +65,10 @@ const Pools = () => {
   
   // Asset state
   const [availableAssets, setAvailableAssets] = useState([])
-  const [activePools, setActivePools] = useState(new Map<string, PoolData>())
+  const {activePools, setActivePools} = usePools();
   const [assetBalances, setAssetBalances] = useState({})
   const [loadingAssets, setLoadingAssets] = useState(false)
+  const [refresh, setRefresh] = useState(false)
   
   // Liquidity state
   const [tokenSelection, setTokenSelection] = useState({
@@ -69,7 +87,7 @@ const Pools = () => {
   const [txHash, setTxHash] = useState(null)
 
   // Get router contract address from custom network config
-  const getRouterAddress = () => {
+  const getrouterContract = () => {
     if (currentNetwork === 'custom' && currentNode) {
       const networkConfig = Array.from(customNetworks.values())
         .find(network => network.name === currentNode.name)
@@ -79,7 +97,19 @@ const Pools = () => {
     return undefined
   }
 
-  const routerAddress = getRouterAddress()
+  // Get factory contract address from custom network config
+  const getfactoryContract = () => {
+    if (currentNetwork === 'custom' && currentNode) {
+      const networkConfig = Array.from(customNetworks.values())
+        .find(network => network.name === currentNode.name)
+      
+      return networkConfig?.contractAddresses?.factory
+    }
+    return undefined
+  }
+
+  const routerContract = getrouterContract()
+  const factoryContract = getfactoryContract()
 
   // Load assets when wallet is connected
   useEffect(() => {
@@ -89,10 +119,15 @@ const Pools = () => {
   }, [isConnected, address])
 
   useEffect(() => {
-    if (routerAddress) {
+    setActivePools(new Map())
+    if (routerContract) {
       loadLPList()
     }
-  }, [routerAddress])
+  }, [isConnected, routerContract])
+
+  useEffect(() => {
+
+  }, [refresh])
 
   // Load assets from wallet
   const loadWalletAssets = async () => {
@@ -144,57 +179,65 @@ const Pools = () => {
   }
 
   const loadLPList = async () => {
-    if (routerAddress) {
-      const assetList = await getContractAssets(routerAddress)
-      console.log(assetList)
+    if (!routerContract) return;
 
-      let pools = activePools
-      assetList.forEach(async (id) => {
-        if (id != NATIVE_ASSET_HASH) {
-          const data = await getContractData({
-            contract: routerAddress,
-            key: {type: "default", value: {
-              type: "opaque", 
-              value: { 
-                type: "Hash", 
-                value: id
-              }
-            }}
-          })
+    const assetList = await getContractAssets(routerContract);
+    const pools = new Map<string, PoolData>();
 
-          if (data?.data.type == "object" && data?.data.value.length == 2 && data?.data.value[1].type == 'map') {
-            const lpMap = data?.data.value[1].value
-            const lpAssets = Object.keys(lpMap)
+    for (const id of assetList) {
+      if (id === NATIVE_ASSET_HASH) continue;
 
-            const tokenA = lpAssets[0]
-            const tokenB = lpAssets[1]
-            const poolKey = `${tokenA}_${tokenB}`
+      const data = await getContractData({
+        contract: routerContract,
+        key: {
+          type: "default",
+          value: {
+            type: "opaque",
+            value: { type: "Hash", value: id },
+          },
+        },
+      });
 
-            let poolData: PoolData | undefined = undefined
-            if (!pools.has(poolKey)) {
-              const dataA = await getAsset({asset: tokenA})
-              const dataB = await getAsset({asset: tokenB})
-              const symbolA = dataA.ticker
-              const symbolB = dataB.ticker
+      if (
+        data?.data.type === "object" &&
+        data?.data.value.length === 2 &&
+        data?.data.value[1].type === "map"
+      ) {
+        const lpMap = data.data.value[1].value;
+        const [tokenA, tokenB] = Object.keys(lpMap);
+        const poolKey = `${tokenA}_${tokenB}`;
 
-              poolData = {
-                name: `${symbolA} - ${symbolB}`,
-                tvl: 0,
-                userShare: undefined
-              }
-            } else {
-              poolData = pools.get(poolKey)
-            }
+        const dataA = await getAsset({ asset: tokenA });
+        const dataB = await getAsset({ asset: tokenB });
+        const symbolA = dataA.ticker;
+        const symbolB = dataB.ticker;
 
-            // TODO update TVL information here etc.
+        let totalA = lpMap[tokenA]
+        let totalB = lpMap[tokenB]
 
-            pools.set(`${tokenA}_${tokenB}`, poolData as PoolData)
-          }
-        }
-      })
-      setActivePools(pools)
+        totalA = totalA / BigInt(10 ** dataA.decimals)
+        totalB = totalB / BigInt(10 ** dataB.decimals)
+
+        const lpTotal: BigInt = (await getAssetSupply({ asset: id })).data
+        const myLp: BigInt = await getRawBalance(id)
+
+        const userShare = new Decimal(myLp.toString()).div(lpTotal.toString()).mul(100).toFixed(3).toString()
+
+        const poolData: PoolData = {
+          name: `${symbolA} - ${symbolB}`,
+          tvl: 0,
+          tickers: [symbolA, symbolB],
+          names: [dataA.name, dataB.name],
+          locked: [totalA.toString(), totalB.toString()],
+          userShare: isConnected ? userShare : undefined,
+        };
+
+        pools.set(poolKey, poolData);
+      }
     }
-  }
+
+    setActivePools(pools);
+  };
 
   // Navigate between screens
   const goToScreen = (screen: string) => {
@@ -253,44 +296,69 @@ const Pools = () => {
   const submitAddLiquidity = async () => {
     setIsSubmitting(true)
     setError(null)
-    
+
     try {
-      if (!routerAddress || !tokenSelection.token1Hash || !tokenSelection.token2Hash) {
+      if (!routerContract || !tokenSelection.token1Hash || !tokenSelection.token2Hash) {
         throw new Error('Missing router address or token selection')
       }
-      
-      // Format amounts for the contract
+
       const token1Amount = formatAmountForContract(
         tokenSelection.token1Amount, 
         tokenSelection.token1Decimals
       )
-      
+
       const token2Amount = formatAmountForContract(
         tokenSelection.token2Amount,
         tokenSelection.token2Decimals
       )
-      
-      // Create transaction data
+
       const txData = createAddLiquidityTransaction({
-        routerAddress,
+        routerContract,
         token1Hash: tokenSelection.token1Hash,
         token2Hash: tokenSelection.token2Hash,
         token1Amount,
         token2Amount
       })
-      
-      console.log('Transaction data:', txData)
-      
-      // Submit the transaction using the wallet
-      const result = await buildAndSubmitTransaction(txData)
-      
-      if (result.success) {
-        setTxHash(result.hash)
+
+      const txBuilder: any = await buildTransaction(txData)
+
+      const eventResult: { status: string } = await new Promise(async (resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Transaction timed out'))
+        }, 90_000)
+
+        try {
+          setTxHash(txBuilder.hash)
+          awaitTx(txBuilder.hash, async () => {
+            console.log("Confirmed, TODO check tx result")
+            const contractOut: any = await getContractOutputs({
+              contract: routerContract, transaction: txBuilder.hash
+            })
+            console.log("contract output", contractOut)
+            clearTimeout(timeout)
+
+            const exitCode = getExitCodeFromOutputs(contractOut)
+            resolve({ status: exitCode === 0 ?'executed' : 'reverted' });
+          })
+
+          await submitTransaction(txBuilder)
+        } catch (err: any) {
+          clearTimeout(timeout)
+          await clearTxCache()
+          reject(new Error(`Failed during awaitTx callback: ${err.message || err}`))
+        }
+      })
+
+      if (eventResult.status === 'executed') {
+        await loadLPList()
+        setRefresh(!refresh)
         goToScreen(SCREENS.SUCCESS)
       } else {
-        throw new Error('Transaction submission failed')
+        await clearTxCache()
+        throw new Error(`Transaction status: ${eventResult.status}`)
       }
-    } catch (err) {
+    } catch (err: any) {
+      await clearTxCache()
       setError(err.message || 'Failed to add liquidity')
       goToScreen(SCREENS.ERROR)
     } finally {
@@ -340,20 +408,20 @@ const Pools = () => {
                 hover:scale-[1.015]
                 active:scale-[0.98]
               "
-              disabled={!routerAddress && isConnected}
+              disabled={!routerContract && isConnected}
               isLoading={connecting}
               staticSize={true}
             >
               {isConnected ? 'Add Liquidity' : 'Connect Wallet'}
             </Button>
             
-            {!routerAddress && isConnected && (
+            {!routerContract && isConnected && (
               <div className="mt-2 text-red-500 text-sm text-center">
                 Router contract not found for this network
               </div>
             )}
             
-            <div className="mt-6">
+            <div className="mt-2">
               <PoolList 
                 pools={activePools}
               />
@@ -587,7 +655,7 @@ const Pools = () => {
                 <div className="flex justify-between items-center mt-2">
                   <div className="text-gray-300">Router contract</div>
                   <div className="text-white font-medium text-xs truncate max-w-[200px]">
-                    {routerAddress}
+                    {routerContract}
                   </div>
                 </div>
               </div>
@@ -628,7 +696,7 @@ const Pools = () => {
             
             {txHash && (
               <div className="text-gray-400 mb-4 break-all">
-                Transaction: {txHash}
+                {txHash}
               </div>
             )}
             
@@ -660,7 +728,7 @@ const Pools = () => {
         return (
           <div className="text-center py-6">
             <div className="text-red-500 text-3xl mb-4">✗</div>
-            <h2 className="text-xl font-semibold text-white mb-3">Transaction Failed</h2>
+            <h2 className="text-xl font-semibold text-white mb-3">Failed to Add Liquidity</h2>
             
             {error && (
               <div className="text-red-400 mb-4">
@@ -733,6 +801,7 @@ const Pools = () => {
           gradient={true}
           gradientBurn={0.1}
           blendMode='soft-light'
+          isLoading={isSubmitting}
         >
           {renderScreenContent()}
         </GeometricAccents>
