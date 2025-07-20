@@ -18,3 +18,21 @@ export const stringToColor = (str: string) => {
   
   return `rgb(${adjustedR}, ${adjustedG}, ${adjustedB})`
 }
+
+/**
+ * Converts a hex string to a byte array
+ * @param {string} hex - Hex string to convert
+ * @returns {number[]} Byte array
+ */
+export const hexToBytes = (hex: string) => {
+  // Remove '0x' prefix if it exists
+  const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex
+  
+  // Convert hex string to byte array
+  const bytes = []
+  for (let i = 0; i < cleanHex.length; i += 2) {
+    bytes.push(parseInt(cleanHex.slice(i, i + 2), 16))
+  }
+  
+  return bytes
+}

@@ -11,7 +11,9 @@ import LiquidityInput from '@/components/pools/LiquidityInput'
 import { PoolList, type PoolData } from '@/components/pools/PoolList'
 import PoolStats from '@/components/pools/PoolStats'
 import { ArrowLeft } from 'lucide-react'
-import { createAddLiquidityTransaction, getExitCodeFromOutputs } from '@/utils/contracts'
+
+// Contract interfaces
+import * as router from '@/contracts/router/contract';
 
 import * as daemonTypes from '@xelis/sdk/daemon/types'
 import * as walletTypes from '@xelis/sdk/wallet/types'
@@ -312,7 +314,7 @@ const Pools = () => {
         tokenSelection.token2Decimals
       )
 
-      const txData = createAddLiquidityTransaction({
+      const txData = router.entries.createAddLiquidityTransaction({
         routerContract,
         token1Hash: tokenSelection.token1Hash,
         token2Hash: tokenSelection.token2Hash,
