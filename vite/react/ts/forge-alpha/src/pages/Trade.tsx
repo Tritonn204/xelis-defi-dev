@@ -369,7 +369,7 @@ const Trade = () => {
                   priceImpact > Math.min(1, slippage) ? 'bg-yellow-500/20 text-yellow-400' : 
                     priceImpact > 0 ? 'bg-green-500/20 text-green-400' : 'bg-black/60 text-white/50'
                 }`}>
-                Price Impact {priceImpact.toFixed(2)}% {priceImpact >= slippage ? 'is too high! Increase Slippage % or lower Amount' : ''}
+                Price Impact {priceImpact.toFixed(2)}% {priceImpact >= slippage ? `is too high! Increase Slippage % or lower ${fromToken?.symbol}` : ''}
               </div>)
             }
 
