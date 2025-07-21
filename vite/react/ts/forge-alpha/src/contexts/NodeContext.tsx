@@ -195,6 +195,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const customNetworksRef = useRef<Map<string, CustomNetworkConfig>>(new Map())
   const recentBlocksRef = useRef<types.Block[]>([])
   const txWatchQueueRef = useRef<Map<string, () => void>>(new Map())
+  const stableHeightRef = useRef<BigInt>(0n)
 
   // Macro-like method wrapper with proper TypeScript generics
   const createRPCMethodWrapper = <TReturn, TParams extends any[] = []>(
@@ -433,6 +434,8 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [state.currentNetwork])
 
+
+  
   const handleNewBlock = (data: any) => {
     const blockData = JSON.parse(data.data)?.result
     recentBlocksRef.current = [blockData, ...recentBlocksRef.current].slice(0, 3)
@@ -451,14 +454,10 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
         txWatchQueueRef.current.delete(txHash)
       }
     }
-
-
-    console.log(blockData)
-    console.log("Updated recent blocks:", recentBlocksRef.current.map(b => b.hash))
   }
 
   const handleStableHeight = (data: any) => {
-    // TODO
+    // TODO update stableHeightRef
   }
 
   // Always subscribe to these global events
