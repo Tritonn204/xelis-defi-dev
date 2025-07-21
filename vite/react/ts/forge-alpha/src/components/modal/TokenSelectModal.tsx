@@ -193,7 +193,7 @@ const TokenSelectModal = ({
                     </div>
                     <div className="text-right flex-shrink-0 ml-2">
                       <div className="text-sm text-gray-400">
-                        {isConnected ? parseFloat(asset.balance).toFixed(4) : '—'}
+                        {isConnected ? parseFloat(assets[asset.hash]?.balance || '0').toFixed(4) : '—'}
                       </div>
                     </div>
                   </Button>

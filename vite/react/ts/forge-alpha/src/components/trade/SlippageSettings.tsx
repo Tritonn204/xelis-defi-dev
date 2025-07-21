@@ -14,7 +14,7 @@ const SlippageSettings = ({ slippage, onSlippageChange }: SlippageSettingsProps)
   const presetValues = [0.1, 0.5, 1.0]
   
   const handleCustomChange = (value: string) => {
-    const numValue = Math.min(parseFloat(value), 50)
+    let numValue = Math.min(parseFloat(value), 50)
     setCustomValue(numValue.toString())
     if (!isNaN(numValue) && numValue >= 0 && numValue <= 50) {
       onSlippageChange(numValue)

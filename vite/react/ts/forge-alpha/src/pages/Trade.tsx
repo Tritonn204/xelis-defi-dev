@@ -366,7 +366,8 @@ const Trade = () => {
             {
               hasValidPool && (<div className={`text-xs px-3 py-1 rounded-md mt-2 ${
                 priceImpact > 5 ? 'bg-red-500/20 text-red-400' : 
-                  priceImpact > 0.005 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-black/60 text-white/50'
+                  priceImpact > Math.min(1, slippage) ? 'bg-yellow-500/20 text-yellow-400' : 
+                    priceImpact > 0 ? 'bg-green-500/20 text-green-400' : 'bg-black/60 text-white/50'
                 }`}>
                 Price Impact: {priceImpact.toFixed(2)}%
               </div>)
@@ -400,7 +401,7 @@ const Trade = () => {
             {isConnected ? (
               <Button
                 onClick={handleSwap}
-                disabled={isSwapDisabled || parseFloat(swapAmounts.from) > parseFloat(fromToken?.balance || '0')}
+                disabled={isSwapDisabled || parseFloat(swapAmounts.from) > parseFloat(assets[fromToken?.hash || ''].balance || '0')}
                 focusOnClick={false}
                 className="
                   w-full 
@@ -426,7 +427,7 @@ const Trade = () => {
                 {isSubmitting ? 'Swapping...' : 
                  !hasValidPool ? 'No Pool Available' :
                  !swapAmounts.from ? 'Enter Amount' :
-                 parseFloat(swapAmounts.from) > parseFloat(fromToken?.balance || '0') ? 'Insufficient Balance' :
+                 parseFloat(swapAmounts.from) > parseFloat(assets[fromToken?.hash || ''].balance || '0') ? 'Insufficient Balance' :
                  'Swap'}
               </Button>
             ) : (
