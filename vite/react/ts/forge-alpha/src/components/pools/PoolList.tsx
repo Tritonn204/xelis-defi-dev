@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { TokenIcon } from '../ui/TokenIcon';
 import { formatCompactNumber } from '../../utils/number';
 import { PoolData } from '@/contexts/PoolContext';
+import { useWallet } from '@/contexts/WalletContext';
 
 interface PoolListProps {
   pools?: Map<string, PoolData>;
@@ -12,6 +13,9 @@ export const PoolList = ({
   pools = new Map<string, PoolData>()
 }: PoolListProps) => {
   const [expandedPools, setExpandedPools] = useState<Set<string>>(new Set());
+
+  const { isConnected } = useWallet()
+
   const togglePool = (key: string) => {
     setExpandedPools(prev => {
       const next = new Set(prev);
@@ -64,7 +68,7 @@ export const PoolList = ({
 
               {/* Right: My Share */}
               <div className="ml-auto mr-2 text-right text-forge-orange text-md z-10">
-                LP Share: <span className='text-white font-bold text-md'>{pool.userShare ?? '--'}%</span>
+                LP Share: <span className={`${isConnected ? 'text-white' : 'text-white/20'} font-bold text-md`}>{pool.userShare ?? '--'}%</span>
               </div>
             </div>
 

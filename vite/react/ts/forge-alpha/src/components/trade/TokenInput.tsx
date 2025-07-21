@@ -4,10 +4,10 @@ import { ChevronDown } from 'lucide-react'
 import '../ui/num_nospinner.css'
 import { TokenIcon } from '../ui/TokenIcon'
 import Button from '../ui/Button'
+import { useAssets } from '@/contexts/AssetContext'
 
 interface TokenInputProps {
   label: string
-  balance?: string
   amount: string
   onChange: (value: string) => void
   tokenSymbol: string
@@ -23,7 +23,6 @@ interface TokenInputProps {
 
 const TokenInput = ({ 
   label, 
-  balance, 
   amount, 
   onChange, 
   tokenSymbol,
@@ -38,6 +37,9 @@ const TokenInput = ({
 }: TokenInputProps) => {
   const fiatValue = parseFloat(amount || '0') * (price || 0)
   const showFiatValue = amount && !isNaN(fiatValue) && fiatValue > 0
+
+  const { assets } = useAssets()
+  const balance = assets[tokenHash || '']?.balance || '0'
   
   const handleMaxClick = () => {
     const balanceNum = parseFloat(balance || '0')

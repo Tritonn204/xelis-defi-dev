@@ -317,7 +317,6 @@ const Trade = () => {
               <div className="mb-1.5">
                 <TokenInput 
                   label="You Send"
-                  balance={fromToken?.balance}
                   amount={swapAmounts.from}
                   onChange={(value: string) => handleAmountChange('from', value)}
                   tokenSymbol={fromToken?.symbol || 'Select'}
@@ -336,7 +335,6 @@ const Trade = () => {
               <div className="mt-1.5">
                 <TokenInput 
                   label="You Receive"
-                  balance={toToken?.balance}
                   amount={swapAmounts.to}
                   onChange={(value: string) => handleAmountChange('to', value)}
                   tokenSymbol={toToken?.symbol || 'Select'}
@@ -402,7 +400,7 @@ const Trade = () => {
             {isConnected ? (
               <Button
                 onClick={handleSwap}
-                disabled={isSwapDisabled}
+                disabled={isSwapDisabled || parseFloat(swapAmounts.from) > parseFloat(fromToken?.balance || '0')}
                 focusOnClick={false}
                 className="
                   w-full 
