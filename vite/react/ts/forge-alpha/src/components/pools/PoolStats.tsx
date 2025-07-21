@@ -1,11 +1,11 @@
 import React from 'react'
 
 const PoolStats = ({ 
-  symbol1, 
-  symbol2, 
-  tvl, 
-  volume24h, 
-  fees24h 
+  symbol1 = '', 
+  symbol2 = '', 
+  tvl = '', 
+  volume24h = '', 
+  fees24h = '' 
 }) => {
   return (
     <div className="bg-black/70 rounded-xl p-3 border border-white/12">

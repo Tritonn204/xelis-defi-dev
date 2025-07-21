@@ -1,18 +1,20 @@
 import { Link, useLocation } from 'react-router-dom'
 
-import { useWallet } from '../../contexts/WalletContext'
-import { useNode } from '../../contexts/NodeContext'
+import { useWallet } from '@/contexts/WalletContext'
+import { useNode } from '@/contexts/NodeContext'
+import { useAssets } from '@/contexts/AssetContext'
 import { useState } from 'react'
 
-import { Edit3, Settings, ChevronDown, Globe } from 'lucide-react'
-import type { CustomNetworkConfig } from '../../contexts/NodeContext'
+import { Edit3, Settings, ChevronDown, Globe, RefreshCw } from 'lucide-react'
+import type { CustomNetworkConfig } from '@/contexts/NodeContext'
 
 import Button from '../ui/Button'
 // import ConfirmDialog from '../ui/ConfirmDialog'
 import CustomNetworkModal from '../modal/CustomNetworkModal'
 
-import bannerImage from '../../assets/banner.png'
-import bgImage from '../../assets/bg.png'
+import bannerImage from '@/assets/banner.png'
+import bgImage from '@/assets/bg.png'
+import Tooltip from '../ui/Tooltip'
 
 const Layout = ({ children }) => {
   const location = useLocation()
@@ -30,9 +32,13 @@ const Layout = ({ children }) => {
     isConnected: nodeConnected 
   } = useNode()
   
+  // Add useAssets hook
+  const { error: assetError, loading: assetsLoading, refreshAssets } = useAssets()
+  
   const [showNetworkDropdown, setShowNetworkDropdown] = useState(false)
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [editingNetwork, setEditingNetwork] = useState<{ id: string, config: CustomNetworkConfig } | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const customNetworks = getCustomNetworks()
 
@@ -51,6 +57,12 @@ const Layout = ({ children }) => {
   const handleCustomNetworkConnect = (config: CustomNetworkConfig) => {
     connectToCustomNetwork(config)
     setShowNetworkDropdown(false)
+  }
+
+  const handleRefreshAssets = async () => {
+    setIsRefreshing(true)
+    await refreshAssets()
+    setTimeout(() => setIsRefreshing(false), 500)
   }
 
   const navigation = [
@@ -224,7 +236,30 @@ const Layout = ({ children }) => {
             </nav>
 
             {/* Right side - Settings and Connect */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
+              {/* Asset refresh/error display - only show when connected */}
+              {isConnected && (
+                <div className="flex items-center space-x-2">
+                  {assetError && (
+                    <span className="text-red-800 text-sm font-light">
+                      Failed to load assets
+                    </span>
+                  )}
+                <Tooltip content="Refresh Assets" bgColor='bg-black/50' fontSize='sm' position='bottom' delay={1000}>
+                  <Button
+                    onClick={handleRefreshAssets}
+                    className="text-gray-300 hover:text-white p-1.5 rounded-md hover:bg-black/50 transition-all duration-200"
+                    disabled={assetsLoading || isRefreshing}
+                    focusOnClick={false}
+                  >
+                    <RefreshCw 
+                      className={`w-5 h-5 ${(assetsLoading || isRefreshing) ? 'animate-spin' : ''}`} 
+                    />
+                  </Button>
+                </Tooltip>
+                </div>
+              )}
+
               {isConnected ? (
                 <div className="bg-black/70 px-4 py-2 rounded-md">
                   <span className="text-[1rem] text-white font-light">

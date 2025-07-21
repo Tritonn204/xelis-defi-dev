@@ -19,6 +19,7 @@ import * as daemonTypes from '@xelis/sdk/daemon/types'
 import * as walletTypes from '@xelis/sdk/wallet/types'
 
 import Decimal from 'decimal.js'
+import { useAssets } from '@/contexts/AssetContext';
 
 // Screen state management
 const SCREENS = {
@@ -65,14 +66,45 @@ const Pools = () => {
     currentScreenRef.current = currentScreen
   }, [currentScreen])
   // Asset state
-  const [availableAssets, setAvailableAssets] = useState<Record<string, any>[]>([])
-  const {activePools, setActivePools} = usePools();
-  const [assetBalances, setAssetBalances] = useState<Record<string, number>>({})
-  const [loadingAssets, setLoadingAssets] = useState(false)
+  const { 
+    activePools, 
+    loadingPools, 
+    poolsError, 
+    refreshPools,
+  } = usePools();
+
+    const {
+    assets,
+    loading: loadingAssets,
+    error: assetError,
+    refreshAssets
+  } = useAssets()
+
+  // Get router contract address from custom network config
+  const getrouterContract = () => {
+    if (currentNetwork === 'custom' && currentNode) {
+      const networkConfig = Array.from(customNetworks.values())
+        .find(network => network.name === currentNode.name)
+      
+      return networkConfig?.contractAddresses?.router
+    }
+    return undefined
+  }
+
+  const routerContract = getrouterContract()
+  const availableAssets = Object.values(assets)
 
   // Mount ping
   const [refresh, setRefresh] = useState(false)
-
+  useEffect(() => {
+    if (refresh) {
+      refreshPools();
+      if (isConnected) {
+        refreshAssets();
+      }
+    }
+  }, [isConnected, routerContract, refresh]);
+  
   // Liquidity state
   const [tokenSelection, setTokenSelection] = useState({
     token1Hash: '',
@@ -88,147 +120,6 @@ const Pools = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [txHash, setTxHash] = useState('')
-
-  // Get router contract address from custom network config
-  const getrouterContract = () => {
-    if (currentNetwork === 'custom' && currentNode) {
-      const networkConfig = Array.from(customNetworks.values())
-        .find(network => network.name === currentNode.name)
-      
-      return networkConfig?.contractAddresses?.router
-    }
-    return undefined
-  }
-
-  // Get factory contract address from custom network config
-  const getfactoryContract = () => {
-    if (currentNetwork === 'custom' && currentNode) {
-      const networkConfig = Array.from(customNetworks.values())
-        .find(network => network.name === currentNode.name)
-      
-      return networkConfig?.contractAddresses?.factory
-    }
-    return undefined
-  }
-
-  const routerContract = getrouterContract()
-  const factoryContract = getfactoryContract()
-
-  // Load assets when wallet is connected
-  useEffect(() => {
-    if (isConnected && address) {
-      loadWalletAssets()
-    }
-  }, [isConnected, address])
-
-  useEffect(() => {
-    setActivePools(new Map())
-    if (routerContract) {
-      loadLPList()
-    }
-  }, [isConnected, routerContract, refresh])
-
-  // Load assets from wallet
-  const loadWalletAssets = async () => {
-    setLoadingAssets(true)
-    try {
-      const assetData = (await getAssets()) as Record<string, any>
-      
-      const assets = assetData.map(([hash, data]) => ({
-        hash,
-        name: data.name,
-        ticker: data.ticker,
-        decimals: data.decimals
-      }))
-      
-      setAvailableAssets(assets)
-      
-      const balances: Record<string, number> = {}
-      for (const asset of assets) {
-        if (asset.hash === NATIVE_ASSET_HASH) {
-          // For XEL, use the xelBalance from the wallet context
-          // Convert from raw to decimal format
-          const rawBalance = parseFloat(xelBalance?.split(' ')[0] || '0')
-          balances[asset.hash] = rawBalance
-        } else {
-          // For other assets, we would need to get their balances
-          // In a real implementation, you'd use:
-          const result = await getBalance(asset.hash)
-          const rawBalance = parseFloat(result?.split(' ')[0] || '0')
-          balances[asset.hash] = rawBalance
-        }
-      }
-      
-      setAssetBalances(balances)
-    } catch (error) {
-      console.error('Error loading assets:', error)
-      setError('Failed to load assets from wallet')
-    } finally {
-      setLoadingAssets(false)
-    }
-  }
-
-  const loadLPList = async () => {
-    if (!routerContract) return;
-
-    const assetList = await getContractAssets(routerContract);
-    const pools = new Map<string, PoolData>();
-
-    for (const id of assetList) {
-      if (id === NATIVE_ASSET_HASH) continue;
-
-      const data = await getContractData({
-        contract: routerContract,
-        key: {
-          type: "default",
-          value: {
-            type: "opaque",
-            value: { type: "Hash", value: id },
-          },
-        },
-      });
-
-      if (
-        data?.data.type === "object" &&
-        data?.data.value.length === 2 &&
-        data?.data.value[1].type === "map"
-      ) {
-        const lpMap = data.data.value[1].value;
-        const [tokenA, tokenB] = Object.keys(lpMap);
-        const poolKey = `${tokenA}_${tokenB}`;
-
-        const dataA = await getAsset({ asset: tokenA });
-        const dataB = await getAsset({ asset: tokenB });
-        const symbolA = dataA.ticker;
-        const symbolB = dataB.ticker;
-
-        let totalA = lpMap[tokenA]
-        let totalB = lpMap[tokenB]
-
-        totalA = totalA / BigInt(10 ** dataA.decimals)
-        totalB = totalB / BigInt(10 ** dataB.decimals)
-
-        const lpTotal: BigInt = (await getAssetSupply({ asset: id })).data
-        const myLp: BigInt = BigInt(await getRawBalance(id))
-
-        const userShare = new Decimal(myLp.toString()).div(lpTotal.toString()).mul(100).toFixed(3).toString()
-
-        const poolData: PoolData = {
-          name: `${symbolA} - ${symbolB}`,
-          tvl: 0,
-          tickers: [symbolA, symbolB],
-          names: [dataA.name, dataB.name],
-          locked: [totalA.toString(), totalB.toString()],
-          userShare: isConnected ? userShare : undefined,
-          totalLpSupply: lpTotal
-        };
-
-        pools.set(poolKey, poolData);
-      }
-    }
-
-    setActivePools(pools);
-  };
 
   // Navigate between screens
   const goToScreen = (screen: string) => {
@@ -247,9 +138,8 @@ const Pools = () => {
 
   // Handle token selection
   const handleSelectTokens = (token1Hash: string, token2Hash: string) => {
-    // Find the selected tokens in our available assets
-    const token1 = availableAssets.find(asset => asset.hash === token1Hash)
-    const token2 = availableAssets.find(asset => asset.hash === token2Hash)
+    const token1 = assets[token1Hash]
+    const token2 = assets[token2Hash]
     
     if (!token1 || !token2) {
       setError('Selected tokens not found')
@@ -261,8 +151,8 @@ const Pools = () => {
       token2Hash,
       token1Amount: '',
       token2Amount: '',
-      token1Symbol: token1.ticker,
-      token2Symbol: token2.ticker,
+      token1Symbol: token1.symbol, // Changed from ticker to symbol
+      token2Symbol: token2.symbol, // Changed from ticker to symbol
       token1Decimals: token1.decimals,
       token2Decimals: token2.decimals
     })
@@ -356,12 +246,12 @@ const Pools = () => {
 
   // Get formatted balance for a token
   const getFormattedBalance = (tokenHash: string) => {
-    if (!tokenHash || !assetBalances[tokenHash]) return '0.0'
+    if (!tokenHash || !assets[tokenHash]) return '0.0'
     
-    const asset = availableAssets.find(a => a.hash === tokenHash)
-    if (!asset) return '0.0'
+    const asset = assets[tokenHash]
+    const balance = parseFloat(asset.balance)
     
-    return assetBalances[tokenHash].toFixed(asset.decimals === 0 ? 0 : 2)
+    return balance.toFixed(asset.decimals === 0 ? 0 : 2)
   }
 
   // Render the appropriate screen content
@@ -409,14 +299,25 @@ const Pools = () => {
               </div>
             )}
             
+            {poolsError && (
+              <div className="mt-2 text-red-500 text-sm text-center">
+                {poolsError}
+              </div>
+            )}
+            
             <div className="mt-2">
-              <PoolList 
-                pools={activePools}
-              />
+              {loadingPools ? (
+                <div className="text-center py-6">
+                  <div className="animate-spin h-8 w-8 border-4 border-forge-orange border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <div className="text-white">Loading pools...</div>
+                </div>
+              ) : (
+                <PoolList pools={activePools} />
+              )}
             </div>
           </>
         )
-      
+            
       case SCREENS.SELECT_TOKENS:
         return (
           <>
@@ -450,14 +351,14 @@ const Pools = () => {
                       onChange={(e) => setTokenSelection({
                         ...tokenSelection,
                         token1Hash: e.target.value,
-                        token1Symbol: availableAssets.find(a => a.hash === e.target.value)?.ticker || 'Unknown'
+                        token1Symbol: assets[e.target.value]?.symbol || 'Unknown'
                       })}
                       value={tokenSelection.token1Hash || ''}
                     >
                       <option value="">Select Token</option>
                       {availableAssets.map(asset => (
                         <option key={asset.hash} value={asset.hash}>
-                          {asset.ticker} - {asset.name}
+                          {asset.symbol} - {asset.name}
                         </option>
                       ))}
                     </select>
@@ -470,18 +371,16 @@ const Pools = () => {
                       onChange={(e) => setTokenSelection({
                         ...tokenSelection,
                         token2Hash: e.target.value,
-                        token2Symbol: availableAssets.find(a => a.hash === e.target.value)?.ticker || 'Unknown'
+                        token2Symbol: assets[e.target.value]?.symbol || 'Unknown'
                       })}
                       value={tokenSelection.token2Hash || ''}
                     >
                       <option value="">Select Token</option>
-                      {availableAssets
-                        .filter(asset => asset.hash !== tokenSelection.token1Hash)
-                        .map(asset => (
-                          <option key={asset.hash} value={asset.hash}>
-                            {asset.ticker} - {asset.name}
-                          </option>
-                        ))}
+                      {availableAssets.map(asset => (
+                        <option key={asset.hash} value={asset.hash}>
+                          {asset.symbol} - {asset.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -560,7 +459,7 @@ const Pools = () => {
                   amount={tokenSelection.token2Amount}
                   onChange={(value: number) => handleAmountChange('token2Amount', value)}
                   tokenSymbol={tokenSelection.token2Symbol}
-                  tokenName={availableAssets.find(a => a.hash === tokenSelection.token2Hash)?.name || ''}
+                  tokenName={assets[tokenSelection.token2Hash]?.name || ''}
                 />
               </div>
             </div>

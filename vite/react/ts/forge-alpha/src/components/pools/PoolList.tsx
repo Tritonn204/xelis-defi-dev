@@ -2,16 +2,7 @@ import React, { useEffect, useState } from 'react'
 
 import { TokenIcon } from '../ui/TokenIcon';
 import { formatCompactNumber } from '../../utils/number';
-
-export interface PoolData {
-  name: string
-  tvl: number
-  tickers: [string, string]
-  names: [string, string]
-  locked: [number, number]
-  userShare: string | undefined,
-  totalLpSupply: BigInt
-}
+import { PoolData } from '@/contexts/PoolContext';
 
 interface PoolListProps {
   pools?: Map<string, PoolData>;
@@ -39,7 +30,7 @@ export const PoolList = ({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {poolEntries.map(([key, pool]) => {
         const isExpanded = expandedPools.has(key);
 

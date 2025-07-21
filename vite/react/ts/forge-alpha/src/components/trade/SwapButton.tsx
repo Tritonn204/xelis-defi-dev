@@ -1,7 +1,7 @@
 import React from 'react'
 
-const SwapButton = ({ onClick, loading, disabled }) => {
-  const handleClick = (e) => {
+const SwapButton = ({ onClick = (e: any) => {}, loading=false, disabled=false }) => {
+  const handleClick = (e: any) => {
     if (!disabled && !loading && onClick) {
       onClick(e);
     }
@@ -11,7 +11,7 @@ const SwapButton = ({ onClick, loading, disabled }) => {
     <div
       onClick={handleClick}
       className={`
-        w-12 h-12
+        w-11 h-11
         bg-black 
         ${disabled ? 'bg-forge-swap cursor-not-allowed' : 'hover:bg-forge-orange/90 cursor-pointer'}
         rounded-full 
@@ -56,7 +56,7 @@ const SwapButton = ({ onClick, loading, disabled }) => {
           viewBox="0 0 24 24" 
           fill="none" 
           xmlns="http://www.w3.org/2000/svg"
-          className="text-white transition-transform duration-300 group-hover:rotate-180"
+          className={`text-white transition-transform duration-300 ${disabled ? '' : "group-hover:rotate-180"}`}
         >
           <path 
             d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16" 

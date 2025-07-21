@@ -64,3 +64,35 @@ a:active {
 .read-the-docs {
   color: #888;
 }
+
+.group:hover .group-hover\:delay-75 {
+  transition-delay: 75ms;
+}
+
+.group:hover .group-hover\:delay-100 {
+  transition-delay: 100ms;
+}
+
+.group:hover .group-hover\:delay-150 {
+  transition-delay: 150ms;
+}
+
+.group:hover .group-hover\:delay-200 {
+  transition-delay: 200ms;
+}
+
+.group:hover .group-hover\:delay-300 {
+  transition-delay: 300ms;
+}
+
+.group:hover .group-hover\:delay-500 {
+  transition-delay: 500ms;
+}
+
+.group:hover .group-hover\:delay-700 {
+  transition-delay: 700ms;
+}
+
+.group:hover .group-hover\:delay-1000 {
+  transition-delay: 1000ms;
+}

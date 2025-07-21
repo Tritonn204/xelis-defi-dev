@@ -83,7 +83,7 @@ const Tools = () => {
   const [txHash, setTxHash] = useState('')
   const [availableAssets, setAvailableAssets] = useState<Record<string, any>[]>([])
 
-  // Get token contract address from custom network config
+  // Get Factory contract address from custom network config
   const getFactoryContract = () => {
     if (currentNetwork === 'custom' && currentNode) {
       const networkConfig = Array.from(customNetworks.values())
@@ -193,7 +193,7 @@ const Tools = () => {
 
     try {
       if (!factoryAddress) {
-        throw new Error('Token contract address not found')
+        throw new Error('Factory contract address not found')
       }
 
       const txData = factory.entries.createTokenTransaction({
@@ -245,7 +245,7 @@ const Tools = () => {
 
     try {
       if (!factoryAddress) {
-        throw new Error('Token contract address not found')
+        throw new Error('Factory contract address not found')
       }
 
       const selectedAsset = availableAssets.find(asset => asset.hash === mintForm.assetHash)
@@ -278,7 +278,7 @@ const Tools = () => {
       id: PANELS.CREATE_TOKEN,
       icon: Hammer, // Using Hammer as anvil alternative
       label: 'Create Token',
-      description: 'Deploy a new token contract'
+      description: 'Create new token'
     },
     {
       id: PANELS.DEPLOY_CONTRACT,
@@ -403,7 +403,7 @@ const Tools = () => {
 
             {!factoryAddress && isConnected && (
               <div className="text-red-500 text-sm text-center">
-                Token contract not found for this network
+                Factory contract not found for this network
               </div>
             )}
           </div>
@@ -486,7 +486,7 @@ const Tools = () => {
 
             {!factoryAddress && isConnected && (
               <div className="text-red-500 text-sm text-center">
-                Token contract not found for this network
+                Factory contract not found for this network
               </div>
             )}
           </div>

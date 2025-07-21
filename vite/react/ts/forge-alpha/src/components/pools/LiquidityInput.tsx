@@ -1,6 +1,7 @@
 import React from 'react'
 import '../../components/ui/num_nospinner.css'
 import { stringToColor } from '../../utils/strings'
+import Button from '../ui/Button'
 
 const LiquidityInput = ({ 
   label, 
@@ -24,6 +25,11 @@ const LiquidityInput = ({
     }
   }
   
+  const handleHalfClick = () => {
+    const balanceNum = parseFloat(balance || '0')
+    onChange((balanceNum / 2).toFixed(decimals))
+  }
+
   return (
     <div className="bg-black/70 rounded-2xl p-3 border border-white/12 backdrop-blur-l">
       <div className="flex flex-col">
@@ -70,13 +76,19 @@ const LiquidityInput = ({
         
           {/* Balance with MAX button */}
           <div className="flex items-center text-xs text-gray-500 mt-2 pl-1">
-            <span>Balance: {balance || '0.0'}</span>
-            <button 
-              className="ml-2 text-xs text-forge-orange hover:text-forge-orange/80 font-medium"
-              onClick={handleMaxClick}
-            >
-              MAX
-            </button>
+            <span>{balance || '0.0'}</span>
+              <Button 
+                className="ml-2 px-1 text-xs text-forge-orange hover:text-forge-orange/80 font-medium transition-colors"
+                onClick={handleHalfClick}
+              >
+                HALF
+              </Button>
+              <Button 
+                className="ml-1 px-1 text-xs text-forge-orange hover:text-forge-orange/80 font-medium transition-colors"
+                onClick={handleMaxClick}
+              >
+                MAX
+              </Button>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WalletProvider } from './contexts/WalletContext'
-import { TokenProvider } from './contexts/TokenContext'
+import { AssetProvider } from './contexts/AssetContext'
 import { NodeProvider } from './contexts/NodeContext'
 import { PoolProvider } from './contexts/PoolContext'
 import { TransactionProvider } from './contexts/TransactionContext'
@@ -22,7 +22,7 @@ function App() {
         <WalletProvider>
           <TransactionProvider>
             <PoolProvider>
-              <TokenProvider>
+              <AssetProvider>
                 <Router>
                   <Layout>
                     <Routes>
@@ -35,7 +35,7 @@ function App() {
                     </Routes>
                   </Layout>
                 </Router>
-              </TokenProvider>
+              </AssetProvider>
             </PoolProvider>
           </TransactionProvider>
         </WalletProvider>
