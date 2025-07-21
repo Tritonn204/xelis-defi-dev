@@ -12,8 +12,8 @@ export const v1 = {
     // Dev fee: 0.03% (9997/10000)
     const amountInWithDevFee = amountIn * 9997 / 10000;
     
-    // LP fee: 0.22% (9978/10000)
-    const amountInWithLPFee = amountInWithDevFee * 9978;
+    // LP fee: 0.25% (9975/10000)
+    const amountInWithLPFee = amountInWithDevFee * 9975;
     
     // Calculate output amount
     const numerator = amountInWithLPFee * reserveOut;

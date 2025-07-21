@@ -54,10 +54,10 @@ export const PoolList = ({
               <div className="absolute left-1/2 -translate-x-1/2 z-0">
                 <div className="relative w-fit h-fit">
                   <div className="-ml-4">
-                    <TokenIcon tokenSymbol={pool.tickers[0]} tokenName={pool.names[0]} size={39} />
+                    <TokenIcon tokenSymbol={pool.tickers[0]} tokenHash={pool.hashes[0]} tokenName={pool.names[0]} size={39} />
                   </div>
                   <div className="-mt-2.5 -mr-4">
-                    <TokenIcon tokenSymbol={pool.tickers[1]} tokenName={pool.names[1]} size={39} />
+                    <TokenIcon tokenSymbol={pool.tickers[1]} tokenHash={pool.hashes[1]} tokenName={pool.names[1]} size={39} />
                   </div>
                 </div>
               </div>

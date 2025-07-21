@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNode, NATIVE_ASSET_HASH } from '@/contexts/NodeContext';
 import { useWallet } from '@/contexts/WalletContext';
+import { Asset } from '@/contexts/AssetContext';
 import Decimal from 'decimal.js';
 
 export interface PoolData {
@@ -16,6 +17,7 @@ export interface PoolData {
 
 interface PoolContextType {
   activePools: Map<string, PoolData>;
+  poolAssets: Map<string, Asset>;
   setActivePools: React.Dispatch<React.SetStateAction<Map<string, PoolData>>>;
   loadingPools: boolean;
   poolsError: string | null;
@@ -26,6 +28,7 @@ interface PoolContextType {
 const PoolContext = createContext<PoolContextType | undefined>(undefined);
 
 export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [poolAssets, setPoolAssets] = useState<Map<string, Asset>>(new Map());
   const [activePools, setActivePools] = useState<Map<string, PoolData>>(new Map());
   const [loadingPools, setLoadingPools] = useState(false);
   const [poolsError, setPoolsError] = useState<string | null>(null);
@@ -68,6 +71,7 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPoolsError(null);
 
     try {
+      const assetMetaMap = new Map<string, Asset>();
       const assetList = await getContractAssets(routerContract);
       const pools = new Map<string, PoolData>();
 
@@ -98,6 +102,32 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const dataB = await getAsset({ asset: tokenB });
           const symbolA = dataA.ticker;
           const symbolB = dataB.ticker;
+
+          // Add asset A
+          if (!assetMetaMap.has(tokenA)) {
+            assetMetaMap.set(tokenA, {
+              hash: tokenA,
+              symbol: symbolA,
+              name: dataA.name,
+              balance: '0',
+              price: 0,
+              logo: `/assets/${dataA.ticker.toLowerCase()}-logo.png`,
+              decimals: dataA.decimals,
+            });
+          }
+
+          // Add asset B
+          if (!assetMetaMap.has(tokenB)) {
+            assetMetaMap.set(tokenB, {
+              hash: tokenB,
+              symbol: symbolB,
+              name: dataB.name,
+              balance: '0',
+              price: 0,
+              logo: `/assets/${dataB.ticker.toLowerCase()}-logo.png`,
+              decimals: dataB.decimals,
+            });
+          }
 
           let totalA = lpMap[tokenA];
           let totalB = lpMap[tokenB];
@@ -132,7 +162,8 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      setActivePools(pools);
+      setPoolAssets(new Map(assetMetaMap))
+      setActivePools(new Map(pools));
     } catch (error: any) {
       console.error('Error loading pools:', error);
       setPoolsError(error.message || 'Failed to load pools');
@@ -157,7 +188,8 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loadingPools,
       poolsError,
       refreshPools,
-      routerContract
+      routerContract,
+      poolAssets
     }}>
       {children}
     </PoolContext.Provider>

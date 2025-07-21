@@ -2,7 +2,7 @@ import { createContext, useContext, useReducer, useEffect, type ReactNode } from
 import { useWallet } from '@/contexts/WalletContext'
 import { useNode, NATIVE_ASSET_HASH } from '@/contexts/NodeContext'
 
-interface Asset {
+export interface Asset {
   symbol: string
   name: string
   balance: string

@@ -11,6 +11,7 @@ interface TokenInputProps {
   amount: string
   onChange: (value: string) => void
   tokenSymbol: string
+  tokenHash?: string,
   tokenName?: string
   price?: number
   tickerWidth?: number
@@ -27,6 +28,7 @@ const TokenInput = ({
   onChange, 
   tokenSymbol,
   tokenName = '',
+  tokenHash ='',
   price,
   tickerWidth = 6,
   onTokenSelect,
@@ -83,7 +85,7 @@ const TokenInput = ({
                 onClick={onTokenSelect}
                 className="flex items-center space-x-2 hover:bg-white/10 rounded-lg px-1 py-0.5 transition-all duration-200 hover:scale-[1.02] -mr-1"
               >
-                <TokenIcon tokenSymbol={tokenSymbol} tokenName={tokenName} size={36}/>
+                <TokenIcon tokenSymbol={tokenSymbol} tokenHash={tokenHash} tokenName={tokenName} size={36}/>
                 <span 
                   className="text-white font-medium text-right"
                   style={{ minWidth: `${tickerWidth}ch` }}
@@ -94,7 +96,7 @@ const TokenInput = ({
               </Button>
             ) : (
               <div className="flex items-center space-x-2">
-                <TokenIcon tokenSymbol={tokenSymbol} tokenName={tokenName} size={36}/>
+                <TokenIcon tokenSymbol={tokenSymbol} tokenHash={tokenHash} tokenName={tokenName} size={36}/>
                 <span 
                   className="text-white font-medium text-right"
                   style={{ minWidth: `${tickerWidth}ch` }}

@@ -25,8 +25,10 @@ const TokenSelectModal = ({
 }: TokenSelectModalProps) => {
   const [searchTerm, setSearchTerm] = useState('')
   const { assets } = useAssets()
-  const { activePools } = usePools()
+  const { activePools, poolAssets } = usePools()
   const { isConnected } = useWallet()
+
+  const allPoolAssets = useMemo(() => Array.from(poolAssets.values()), [poolAssets])
 
   // Clear search when modal opens/closes
   useEffect(() => {
@@ -43,53 +45,34 @@ const TokenSelectModal = ({
 
   // Get available tokens based on position and connection status
   const availableTokens = useMemo(() => {
-    const allAssets = Object.values(assets)
-    
     if (position === 'from') {
-      // For "from" position, show all tokens present in pools
-      const tokensInPools = new Set<string>()
-      
-      activePools.forEach((pool) => {
-        // Use hashes directly from pool data
-        pool.hashes.forEach(hash => {
-          if (assets[hash]) {
-            tokensInPools.add(hash)
-          }
-        })
-      })
-      
-      let availableAssets = allAssets.filter(asset => tokensInPools.has(asset.hash))
-      
-      // If connected, further filter to only show assets the wallet has
+      let filtered = allPoolAssets
+
       if (isConnected) {
-        availableAssets = availableAssets.filter(asset => 
-          parseFloat(asset.balance) > 0 || asset.hash === currentToken
+        filtered = allPoolAssets.filter(asset => 
+          assets[asset.hash] && (parseFloat(assets[asset.hash].balance) > 0 || asset.hash === currentToken)
         )
       }
-      
-      return availableAssets
+
+      return filtered
     } else {
-      // For "to" position, show only tokens that have pools with the "from" token
       if (!otherToken) return []
-      
+
       const availableHashes = new Set<string>()
-      
-      // Look through all pools to find pairs with the "from" token
-      activePools.forEach((pool) => {
-        // Check if this pool contains the "from" token by hash
+
+      activePools.forEach(pool => {
         if (pool.hashes.includes(otherToken)) {
-          // Add the other token in the pair
           pool.hashes.forEach(hash => {
-            if (hash !== otherToken && assets[hash]) {
+            if (hash !== otherToken && poolAssets.has(hash)) {
               availableHashes.add(hash)
             }
           })
         }
       })
-      
-      return allAssets.filter(asset => availableHashes.has(asset.hash))
+
+      return allPoolAssets.filter(asset => availableHashes.has(asset.hash))
     }
-  }, [assets, activePools, position, otherToken, isConnected, currentToken])
+  }, [allPoolAssets, activePools, position, otherToken, isConnected, currentToken, poolAssets])
 
   // Filter tokens based on search (now includes hash)
   const filteredTokens = useMemo(() => {
@@ -169,7 +152,7 @@ const TokenSelectModal = ({
                       ? 'You need tokens that are available in liquidity pools'
                       : 'Select from tokens available in liquidity pools'
                     : otherToken
-                      ? `No pools found with ${assets[otherToken]?.symbol || 'selected token'}`
+                      ? `No pools found with ${poolAssets.get(otherToken)?.symbol || 'selected token'}`
                       : 'Select a token above first'
                   }
                 </div>
@@ -192,6 +175,7 @@ const TokenSelectModal = ({
                     <TokenIcon 
                       tokenSymbol={asset.symbol} 
                       tokenName={asset.name} 
+                      tokenHash={asset.hash}
                       size={40} 
                     />
                     <div className="flex-1 min-w-0">

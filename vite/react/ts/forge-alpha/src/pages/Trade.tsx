@@ -38,7 +38,7 @@ const Trade = () => {
     submitTransaction,
     clearTxCache
   } = useWallet()
-  const { activePools, routerContract, refreshPools } = usePools()
+  const { activePools, routerContract, refreshPools, poolAssets } = usePools()
   const { awaitContractInvocation } = useTransactionContext()
 
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -49,8 +49,8 @@ const Trade = () => {
   const [error, setError] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
 
-  const fromToken = assets[selectedAssets.from]
-  const toToken = assets[selectedAssets.to]
+  const fromToken = poolAssets.get(selectedAssets.from)
+  const toToken = poolAssets.get(selectedAssets.to)
 
   // Track current screen state for transaction callbacks
   const isSwappingRef = useRef(false)
@@ -321,6 +321,7 @@ const Trade = () => {
                   amount={swapAmounts.from}
                   onChange={(value: string) => handleAmountChange('from', value)}
                   tokenSymbol={fromToken?.symbol || 'Select'}
+                  tokenHash={fromToken?.hash}
                   tokenName={fromToken?.name || ''}
                   price={fromToken?.price}
                   tickerWidth={5}
@@ -340,6 +341,7 @@ const Trade = () => {
                   onChange={(value: string) => handleAmountChange('to', value)}
                   tokenSymbol={toToken?.symbol || 'Select'}
                   tokenName={toToken?.name || ''}
+                  tokenHash={toToken?.hash}
                   price={toToken?.price}
                   tickerWidth={5}
                   onTokenSelect={() => handleTokenSelect('to')}
@@ -455,12 +457,16 @@ const Trade = () => {
             <div className="grid grid-cols-2 gap-2">
               <TokenStats 
                 symbol={fromToken?.symbol || "—"}
+                tokenHash={fromToken?.hash}
+                tokenName={fromToken?.name}
                 price="1.790"
                 priceChange="10.13"
                 color="bg-orange-500"
               />
               <TokenStats 
                 symbol={toToken?.symbol || "—"}
+                tokenHash={toToken?.hash}
+                tokenName={toToken?.name}
                 price="1.790"
                 priceChange="0.1"
                 color="bg-green-500"
