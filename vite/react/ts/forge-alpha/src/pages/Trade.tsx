@@ -264,7 +264,7 @@ const Trade = () => {
   const isSwapDisabled = !hasValidPool || 
     !swapAmounts.from || 
     parseFloat(swapAmounts.from) <= 0 ||
-    parseFloat(swapAmounts.from) > parseFloat(fromToken?.balance || '0') ||
+    parseFloat(swapAmounts.from) > parseFloat(assets[fromToken?.hash || '']?.balance || '0') ||
     isSubmitting
 
   return (
@@ -353,7 +353,11 @@ const Trade = () => {
               {/* Circular Swap Button */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
                 <SwapButton
-                  onClick={swapAssets}
+                  onClick={() => {
+                    const newFrom = swapAmounts.to
+                    swapAssets(); 
+                    handleAmountChange('from', newFrom)
+                  }}
                   loading={loading}
                   disabled={!hasValidPool || isSubmitting}
                 />
