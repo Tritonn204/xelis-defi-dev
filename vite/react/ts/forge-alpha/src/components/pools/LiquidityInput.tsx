@@ -2,24 +2,30 @@ import React from 'react'
 import '../../components/ui/num_nospinner.css'
 import { stringToColor } from '../../utils/strings'
 import Button from '../ui/Button'
+import { useAssets } from '@/contexts/AssetContext'
 
 const LiquidityInput = ({ 
-  label, 
-  balance, 
-  amount, 
-  onChange, 
-  tokenSymbol,
-  tokenName = '',
-  decimals = 8,
+  label = '', 
+  amount = '', 
+  onChange = (val: any)=>{}, 
+  tokenHash = '',
   tickerWidth = 6
 }) => {
+  const { assets } = useAssets()
+
+  const asset = assets[tokenHash]!
+  const tokenName = asset.name
+  const tokenSymbol = asset.symbol
+  const decimals = asset.decimals
+  const balance = asset.balance
   const tokenColor = stringToColor(tokenSymbol + tokenName)
   const firstLetter = tokenSymbol?.charAt(0) || '?'
   
   const handleMaxClick = () => {
     // Use the actual balance, but leave a small amount for fees if it's XEL
-    if ((tokenSymbol === 'XEL' || tokenSymbol === 'XET') && balance > 0.0005) {
-      onChange((balance - 0.0005).toFixed(decimals))
+    const balanceNum = parseFloat(balance || '0')
+    if ((tokenSymbol === 'XEL' || tokenSymbol === 'XET') && balanceNum > 0.0005) {
+      onChange((balanceNum - 0.0005).toFixed(decimals))
     } else {
       onChange(balance.toString() || '0')
     }

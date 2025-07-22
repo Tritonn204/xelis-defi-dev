@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { stringToColor } from '@/utils/strings'
 import logoMap from '@/utils/tokenLogos'
+import { usePools } from '@/contexts/PoolContext'
 
 interface TokenIconProps {
   tokenSymbol: string
@@ -15,23 +16,28 @@ export const TokenIcon = ({
   tokenHash,
   size = 24,
 }: TokenIconProps) => {
+  const { poolAssets } = usePools()
+
   const key = (tokenHash || tokenSymbol).toLowerCase()
-  const logoSrc = logoMap[key]
+  const logoSrc = logoMap[key] || poolAssets.get(tokenHash || '')?.logo
 
   const tokenColor = stringToColor(tokenSymbol + tokenName)
   const firstLetter = tokenSymbol?.charAt(0) || '?'
   const fontSize = size * 0.45
+
+  const [imgError, setImgError] = useState(false)
 
   return (
     <div
       className="relative z-0 rounded-full"
       style={{ width: size, height: size }}
     >
-      {logoSrc ? (
+      {!imgError && logoSrc ? (
         <img
           src={logoSrc}
           alt={tokenSymbol}
           className="absolute top-0 left-0 w-full h-full object-cover rounded-full z-0"
+          onError={() => setImgError(true)}
         />
       ) : (
         <div

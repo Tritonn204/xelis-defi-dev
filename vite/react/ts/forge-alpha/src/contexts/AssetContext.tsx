@@ -7,7 +7,8 @@ export interface Asset {
   name: string
   balance: string
   price: number
-  logo: string
+  isForge: boolean
+  logo: string | undefined
   hash: string
   decimals: number
 }
@@ -187,7 +188,8 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
               name: data.name,
               balance,
               price: 0,
-              logo: `/assets/${data.ticker.toLowerCase()}-logo.png`,
+              isForge: false,
+              logo: undefined,
               decimals: data.decimals
             }
 

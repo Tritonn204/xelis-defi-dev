@@ -5,6 +5,7 @@ import '../ui/num_nospinner.css'
 import { TokenIcon } from '../ui/TokenIcon'
 import Button from '../ui/Button'
 import { useAssets } from '@/contexts/AssetContext'
+import { usePrices } from '@/contexts/PriceContext'
 
 interface TokenInputProps {
   label: string
@@ -28,17 +29,18 @@ const TokenInput = ({
   tokenSymbol,
   tokenName = '',
   tokenHash ='',
-  price,
   tickerWidth = 6,
   onTokenSelect,
   disabled = false,
   showMaxHalf = false,
   decimals = 8
 }: TokenInputProps) => {
-  const fiatValue = parseFloat(amount || '0') * (price || 0)
-  const showFiatValue = amount && !isNaN(fiatValue) && fiatValue > 0
-
   const { assets } = useAssets()
+  const { assetPrices, priceSources } = usePrices();
+
+  const price = assetPrices.get(tokenHash)
+  const fiatValue = price ? (parseFloat(amount || '0') * price) : 0
+  const showFiatValue = amount && !isNaN(fiatValue) && fiatValue > 0
   const balance = assets[tokenHash || '']?.balance || '0'
   
   const handleMaxClick = () => {
@@ -87,10 +89,10 @@ const TokenInput = ({
                 onClick={onTokenSelect}
                 className="flex items-center space-x-2 hover:bg-white/10 rounded-lg px-1 py-0.5 transition-all duration-200 hover:scale-[1.02] -mr-1"
               >
-                <TokenIcon tokenSymbol={tokenSymbol} tokenHash={tokenHash} tokenName={tokenName} size={36}/>
-                <span 
+                <TokenIcon tokenSymbol={tokenSymbol} tokenHash={tokenHash} tokenName={tokenName} size={36} />
+                <span
                   className="text-white font-medium text-right"
-                  style={{ minWidth: `${tickerWidth}ch` }}
+                  style={{ width: `${tickerWidth}ch`, display: 'inline-block', textAlign: 'right' }}
                 >
                   {tokenSymbol}
                 </span>
@@ -98,10 +100,10 @@ const TokenInput = ({
               </Button>
             ) : (
               <div className="flex items-center space-x-2">
-                <TokenIcon tokenSymbol={tokenSymbol} tokenHash={tokenHash} tokenName={tokenName} size={36}/>
-                <span 
+                <TokenIcon tokenSymbol={tokenSymbol} tokenHash={tokenHash} tokenName={tokenName} size={36} />
+                <span
                   className="text-white font-medium text-right"
-                  style={{ minWidth: `${tickerWidth}ch` }}
+                  style={{ width: `${tickerWidth}ch`, display: 'inline-block', textAlign: 'right' }}
                 >
                   {tokenSymbol}
                 </span>

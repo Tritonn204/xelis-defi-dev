@@ -16,7 +16,8 @@ export const createTokenTransaction = (params: types.CreateTokenParams): Record<
     supply, 
     mintable, 
     maxSupply, 
-    maxGas = 200000000 
+    maxGas = 200000000,
+    icon = ""
   } = params;
 
   const adjustedSupply = supply * 10 ** decimals;
@@ -24,14 +25,15 @@ export const createTokenTransaction = (params: types.CreateTokenParams): Record<
 
   return createContractInvocation({
     contract,
-    chunkId: 2,
+    chunkId: 9,
     parameters: [
       vmParam.string(name),
       vmParam.string(ticker),
       vmParam.u64(adjustedSupply),
       vmParam.u8(decimals),
       vmParam.boolean(mintable),
-      vmParam.u64(adjustedMaxSupply)
+      vmParam.u64(adjustedMaxSupply),
+      vmParam.string(icon)
     ],
     deposits: {
       [NATIVE_ASSET_HASH]: 100000000
@@ -50,7 +52,7 @@ export const createMintTokensTransaction = (params: types.MintTokensParams): Rec
 
   return createContractInvocation({
     contract,
-    chunkId: 3,
+    chunkId: 10,
     parameters: [
       vmParam.hash(assetHash),
       vmParam.u64(mintAmount)
@@ -69,7 +71,7 @@ export const createTransferOwnershipTransaction = (params: types.TransferOwnersh
 
   return createContractInvocation({
     contract,
-    chunkId: 4,
+    chunkId: 11,
     parameters: [
       vmParam.hash(assetHash),
       vmParam.address(ownerAddress)
@@ -88,7 +90,7 @@ export const createRenounceOwnershipTransaction = (params: types.RenounceOwnersh
 
   return createContractInvocation({
     contract,
-    chunkId: 5,
+    chunkId: 12,
     parameters: [
       vmParam.hash(assetHash)
     ],

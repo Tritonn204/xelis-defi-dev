@@ -64,7 +64,9 @@ const Tools = () => {
     decimals: 8,
     supply: '',
     mintable: false,
-    maxSupply: ''
+    hasIcon: false,
+    maxSupply: '',
+    iconUrl: ''
   })
 
   const [deployForm, setDeployForm] = useState({
@@ -203,7 +205,8 @@ const Tools = () => {
         decimals: createTokenForm.decimals,
         supply: parseFloat(createTokenForm.supply),
         mintable: createTokenForm.mintable,
-        maxSupply: parseFloat(createTokenForm.maxSupply || createTokenForm.supply)
+        maxSupply: parseFloat(createTokenForm.maxSupply || createTokenForm.supply),
+        icon: createTokenForm.iconUrl 
       })
 
       const txBuilder = await buildTransaction(txData)
@@ -289,8 +292,8 @@ const Tools = () => {
     {
       id: PANELS.MINT_TOKENS,
       icon: Coins,
-      label: 'Mint Tokens',
-      description: 'Mint existing tokens'
+      label: 'Manage Tokens',
+      description: 'Manage your Forge Tokens'
     }
   ]
 
@@ -366,12 +369,42 @@ const Tools = () => {
               <label className="flex items-center space-x-2 text-white">
                 <input
                   type="checkbox"
+                  checked={createTokenForm.hasIcon}
+                  onChange={(e) => handleCreateTokenChange('hasIcon', e.target.checked)}
+                  className="rounded border-white/20"
+                />
+                <span>Provide Icon URL (optional)</span>
+              </label>
+            </div>
+
+            <div>
+              <label className="flex items-center space-x-2 text-white">
+                <input
+                  type="checkbox"
                   checked={createTokenForm.mintable}
                   onChange={(e) => handleCreateTokenChange('mintable', e.target.checked)}
                   className="rounded border-white/20"
                 />
                 <span>Mintable (allow creating more tokens later)</span>
               </label>
+            </div>
+
+            <div
+              className={`
+                transition-all duration-300 ease-in-out overflow-hidden 
+                ${createTokenForm.hasIcon ? 'max-h-40 opacity-100 mt-2' : 'max-h-0 opacity-0'}
+              `}
+            >
+              <div>
+                <label className="block text-forge-orange text-sm font-medium mb-2">Icon URL</label>
+                <input
+                  type="text"
+                  value={createTokenForm.iconUrl}
+                  onChange={(e) => handleCreateTokenChange('iconUrl', e.target.value)}
+                  className="w-full bg-black/80 text-white p-3 rounded-lg border border-white/20 focus:border-forge-orange focus:outline-none"
+                  placeholder="https://your-cdn.com/my-token-icon.png"
+                />
+              </div>
             </div>
 
             <div
@@ -481,7 +514,7 @@ const Tools = () => {
               disabled={!mintForm.assetHash || !mintForm.mintAmount || !factoryAddress}
               className="w-full bg-forge-orange hover:bg-forge-orange/90 disabled:bg-gray-600 text-white font-light text-[1.5rem] py-1 px-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:ring-2 ring-white hover:scale-[1.015] active:scale-[0.98]"
             >
-              Mint Tokens
+              Manage Tokens
             </Button>
 
             {!factoryAddress && isConnected && (

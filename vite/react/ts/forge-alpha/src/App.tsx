@@ -5,6 +5,7 @@ import { AssetProvider } from './contexts/AssetContext'
 import { NodeProvider } from './contexts/NodeContext'
 import { PoolProvider } from './contexts/PoolContext'
 import { TransactionProvider } from './contexts/TransactionContext'
+import { PriceProvider } from './contexts/PriceContext'
 
 import Layout from './components/layout/Layout'
 import Trade from './pages/Trade'
@@ -23,18 +24,20 @@ function App() {
           <TransactionProvider>
             <PoolProvider>
               <AssetProvider>
-                <Router>
-                  <Layout>
-                    <Routes>
-                      <Route path="/" element={<Trade />} />
-                      <Route path="/trade" element={<Trade />} />
-                      <Route path="/pools" element={<Pools />} />
-                      <Route path="/tools" element={<Tools />} />
-                      {/* 
-                      <Route path="/bridge" element={<Bridge />} /> */}
-                    </Routes>
-                  </Layout>
-                </Router>
+                <PriceProvider>
+                  <Router>
+                    <Layout>
+                      <Routes>
+                        <Route path="/" element={<Trade />} />
+                        <Route path="/trade" element={<Trade />} />
+                        <Route path="/pools" element={<Pools />} />
+                        <Route path="/tools" element={<Tools />} />
+                        {/* 
+                        <Route path="/bridge" element={<Bridge />} /> */}
+                      </Routes>
+                    </Layout>
+                  </Router>
+                </PriceProvider>
               </AssetProvider>
             </PoolProvider>
           </TransactionProvider>

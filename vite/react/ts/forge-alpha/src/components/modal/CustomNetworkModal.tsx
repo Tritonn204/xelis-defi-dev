@@ -170,7 +170,7 @@ const CustomNetworkModal = ({ isOpen, onClose, editingNetwork }: CustomNetworkMo
                 value={formData.wsEndpoint}
                 onChange={(e) => setFormData(prev => ({ ...prev, wsEndpoint: e.target.value }))}
                 className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-white focus:border-forge-orange focus:outline-none"
-                placeholder="ws://localhost:8080/ws"
+                placeholder="ws://127.0.0.1:8080/json_rpc"
                 required
               />
             </div>

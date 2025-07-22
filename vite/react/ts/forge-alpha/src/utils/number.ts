@@ -7,6 +7,8 @@ export const formatCompactNumber = (input: unknown): string => {
     return n.toFixed(2) + suffix;
   };
 
+  if (value >= 1e21) return format(value / 1e21, 'S');
+  if (value >= 1e18) return format(value / 1e18, 'Qu');
   if (value >= 1e15) return format(value / 1e15, 'Q');
   if (value >= 1e12) return format(value / 1e12, 'T');
   if (value >= 1e9) return format(value / 1e9, 'B');

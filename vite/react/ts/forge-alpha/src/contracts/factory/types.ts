@@ -76,6 +76,15 @@ export interface CreateTokenParams {
    * @minimum 1000000
    */
   maxGas?: number;
+
+  /**
+   * Direct URL to web-compatible icon for the token
+   * @example "https://logo.com/icon.png"
+   * @minLength 0
+   * @default empty
+   * @maxLength 256
+   */
+  icon: string;
 }
 
 /**

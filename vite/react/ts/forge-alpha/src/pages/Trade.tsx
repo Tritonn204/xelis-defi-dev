@@ -12,6 +12,7 @@ import GeometricAccents from '@/components/ui/GeometricAccents'
 import TokenSelectModal from '@/components/modal/TokenSelectModal'
 import { v1 } from '@/utils/swapCalculations'
 import * as router from '@/contracts/router/contract'
+import { usePrices } from '@/contexts/PriceContext'
 
 const Trade = () => {
   const { 
@@ -40,6 +41,7 @@ const Trade = () => {
   } = useWallet()
   const { activePools, routerContract, refreshPools, poolAssets } = usePools()
   const { awaitContractInvocation } = useTransactionContext()
+  const { assetPrices } = usePrices()
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalPosition, setModalPosition] = useState<'from' | 'to'>('from')
@@ -113,6 +115,9 @@ const Trade = () => {
       priceImpact
     }
   }, [swapAmounts.from, poolReserves, slippage, fromToken, toToken])
+
+  useEffect(() => {
+  }, [assetPrices])
 
   // Calculate swap amounts when input changes
   useEffect(() => {
@@ -270,14 +275,13 @@ const Trade = () => {
   return (
     <>
       <div className="flex justify-center items-center min-h-[75vh]">
-        <div className="background-transparent rounded-2xl p-5 w-full max-w-md">
+        <div className="background-transparent rounded-2xl p-5 w-full max-w-[475px]">
           <GeometricAccents
             accentWidth={19}
             tipExtension={60}
             tipAngle={50}
             variant="white"
             gap={7}
-            className="w-full max-w-md"
             alpha={0.7}
             glassEffect={true}
             gradient={true}

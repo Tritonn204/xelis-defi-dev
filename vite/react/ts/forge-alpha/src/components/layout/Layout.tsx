@@ -15,6 +15,7 @@ import CustomNetworkModal from '../modal/CustomNetworkModal'
 import bannerImage from '@/assets/banner.png'
 import bgImage from '@/assets/bg.png'
 import Tooltip from '../ui/Tooltip'
+import { usePools } from '@/contexts/PoolContext'
 
 const Layout = ({ children }) => {
   const location = useLocation()
@@ -31,7 +32,7 @@ const Layout = ({ children }) => {
     generateNetworkId,
     isConnected: nodeConnected 
   } = useNode()
-  
+  const { loadingPools, activePools, refreshPools } = usePools()
   // Add useAssets hook
   const { error: assetError, loading: assetsLoading, refreshAssets } = useAssets()
   
@@ -62,6 +63,7 @@ const Layout = ({ children }) => {
   const handleRefreshAssets = async () => {
     setIsRefreshing(true)
     await refreshAssets()
+    await refreshPools()
     setTimeout(() => setIsRefreshing(false), 500)
   }
 
@@ -241,11 +243,11 @@ const Layout = ({ children }) => {
               {isConnected && (
                 <div className="flex items-center space-x-2">
                   {assetError && (
-                    <span className="text-red-800 text-sm font-light">
+                    <span className="text-forge-orange text-sm">
                       Failed to load assets
                     </span>
                   )}
-                <Tooltip content="Refresh Assets" bgColor='bg-black/50' fontSize='sm' position='bottom' delay={1000}>
+                <Tooltip content="Refresh Data" bgColor='bg-black/50' fontSize='sm' position='bottom' delay={1000}>
                   <Button
                     onClick={handleRefreshAssets}
                     className="text-gray-300 hover:text-white p-1.5 rounded-md hover:bg-black/50 transition-all duration-200"

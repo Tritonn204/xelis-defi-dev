@@ -11,19 +11,19 @@ const TYPE_VALIDATORS = {
   'u256': (v: any) => {
     const num = typeof v === 'bigint' ? v : BigInt(v);
     if (num < 0n) throw new Error(`Value ${v} cannot be negative for u256`);
-    return num.toString();
+    return Number(num)
   },
   'u128': (v: any) => {
     const num = typeof v === 'bigint' ? v : BigInt(v);
     if (num < 0n) throw new Error(`Value ${v} cannot be negative for u128`);
-    return num.toString();
+    return Number(num)
   },
   'u64': (v: any) => {
     const num = typeof v === 'bigint' ? v : BigInt(v);
     if (num < 0n || num > 0xFFFFFFFFFFFFFFFFn) {
       throw new Error(`Value ${v} is out of range for u64`);
     }
-    return num <= Number.MAX_SAFE_INTEGER ? Number(num) : num.toString();
+    return Number(num)
   },
   'u32': (v: any) => {
     const num = Number(v);

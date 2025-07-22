@@ -20,6 +20,7 @@ import * as walletTypes from '@xelis/sdk/wallet/types'
 
 import Decimal from 'decimal.js'
 import { useAssets } from '@/contexts/AssetContext';
+import { usePrices } from '@/contexts/PriceContext';
 
 // Screen state management
 const SCREENS = {
@@ -57,9 +58,12 @@ const Pools = () => {
   const { 
     awaitContractInvocation
   } = useTransactionContext()
-  
+  const {
+    assetPrices
+  } = usePrices()
   // Screen state
   const [currentScreen, setCurrentScreen] = useState(SCREENS.LIST)
+  const [autoFillEnabled, setAutoFillEnabled] = useState(true);
   const currentScreenRef = useRef(currentScreen)
 
   useEffect(() => {
@@ -162,10 +166,21 @@ const Pools = () => {
 
   // Handle amount changes
   const handleAmountChange = (tokenField: string, value: number) => {
-    setTokenSelection({
-      ...tokenSelection,
-      [tokenField]: value
-    })
+    const updatedSelection = { ...tokenSelection, [tokenField]: value }
+
+    const price1 = assetPrices.get(tokenSelection.token1Hash) || 0
+    const price2 = assetPrices.get(tokenSelection.token2Hash) || 0
+
+    // Autofill logic (only if toggle is enabled and prices are valid)
+    if (autoFillEnabled && price1 > 0 && price2 > 0) {
+      if (tokenField === 'token1Amount') {
+        updatedSelection.token2Amount = (value * price1 / price2).toFixed(tokenSelection.token1Decimals)
+      } else if (tokenField === 'token2Amount') {
+        updatedSelection.token1Amount = (value * price2 / price1).toFixed(tokenSelection.token2Decimals)
+      }
+    }
+
+    setTokenSelection(updatedSelection)
   }
 
   // Format amount with proper decimals
@@ -428,7 +443,6 @@ const Pools = () => {
               </button>
               <h2 className="text-xl font-semibold text-white">Add Liquidity</h2>
             </div>
-            
             <div className="text-gray-300 mb-4">
               Enter the amount of tokens you want to deposit
             </div>
@@ -438,11 +452,9 @@ const Pools = () => {
               <div className="-mb-6">
                 <LiquidityInput 
                   label={`${tokenSelection.token1Symbol} Amount`}
-                  balance={getFormattedBalance(tokenSelection.token1Hash)}
                   amount={tokenSelection.token1Amount}
                   onChange={(value: number) => handleAmountChange('token1Amount', value)}
-                  tokenSymbol={tokenSelection.token1Symbol}
-                  tokenName={availableAssets.find(a => a.hash === tokenSelection.token1Hash)?.name || ''}
+                  tokenHash={tokenSelection.token1Hash}
                 />
               </div>
               
@@ -455,15 +467,28 @@ const Pools = () => {
               <div className="-mt-4">
                 <LiquidityInput 
                   label={`${tokenSelection.token2Symbol} Amount`}
-                  balance={getFormattedBalance(tokenSelection.token2Hash)}
                   amount={tokenSelection.token2Amount}
                   onChange={(value: number) => handleAmountChange('token2Amount', value)}
-                  tokenSymbol={tokenSelection.token2Symbol}
-                  tokenName={assets[tokenSelection.token2Hash]?.name || ''}
+                  tokenHash={tokenSelection.token2Hash}
                 />
               </div>
             </div>
             
+            {(assetPrices.get(tokenSelection.token1Hash) || 0 > 0 && assetPrices.get(tokenSelection.token2Hash) || 0 > 0) && (
+              <div className="flex items-center justify-between  ml-1 mt-2 mr-1 mb-2">
+                <label htmlFor="autofill-toggle" className="text-white text-sm">
+                  Autofill other token using price
+                </label>
+                <input
+                  id="autofill-toggle"
+                  type="checkbox"
+                  className="w-5 h-5 accent-forge-orange"
+                  checked={autoFillEnabled}
+                  onChange={(e) => setAutoFillEnabled(e.target.checked)}
+                />
+              </div>
+            )}
+
             <div className="mt-2">
               <Button
                 onClick={() => goToScreen(SCREENS.CONFIRM)}
@@ -497,19 +522,26 @@ const Pools = () => {
         const poolKey2 = `${tokenSelection.token2Hash}_${tokenSelection.token1Hash}`
         const pool = activePools.get(poolKey1) || activePools.get(poolKey2)
 
-        let estimatedLpTokens: string
+        let estimatedLpTokens: string;
+
+        const tokenAAmountAtomic = new Decimal(tokenSelection.token1Amount || 0).mul(10 ** tokenSelection.token1Decimals);
+        const tokenBAmountAtomic = new Decimal(tokenSelection.token2Amount || 0).mul(10 ** tokenSelection.token2Decimals);
 
         if (pool) {
-          const totalLP = new Decimal(pool.totalLpSupply.toString())
-          const ratio1 = new Decimal(tokenSelection.token1Amount).div(pool.locked[0] || 1)
-          const ratio2 = new Decimal(tokenSelection.token2Amount).div(pool.locked[1] || 1)
-          const shareRatio = Decimal.min(ratio1, ratio2)
+          const poolLockedA = new Decimal(pool.locked[0]); // atomic
+          const poolLockedB = new Decimal(pool.locked[1]); // atomic
+          const totalLPSupply = new Decimal(pool.totalLpSupply.toString()); // atomic
 
-          estimatedLpTokens = totalLP.mul(shareRatio).div(1e8).toFixed(8)
+          const ratioA = tokenAAmountAtomic.div(poolLockedA || 1);
+          const ratioB = tokenBAmountAtomic.div(poolLockedB || 1);
+          const shareRatio = Decimal.min(ratioA, ratioB);
+
+          const lpAmountAtomic = totalLPSupply.mul(shareRatio);
+          estimatedLpTokens = lpAmountAtomic.div(1e8).toFixed(8);
         } else {
-          const amount1 = new Decimal(tokenSelection.token1Amount)
-          const amount2 = new Decimal(tokenSelection.token2Amount)
-          estimatedLpTokens = amount1.mul(amount2).sqrt().toFixed(8)
+          const lpAmountAtomic = tokenAAmountAtomic.mul(tokenBAmountAtomic).sqrt();
+          const MINIMUM_LIQUIDITY = new Decimal(1000);
+          estimatedLpTokens = lpAmountAtomic.sub(MINIMUM_LIQUIDITY).div(1e8).toFixed(8);
         }
 
         return (
@@ -532,7 +564,7 @@ const Pools = () => {
                   {tokenSelection.token1Amount} {tokenSelection.token1Symbol}
                 </div>
                 <div className="text-white font-medium">
-                  ${(parseFloat(tokenSelection.token1Amount || '0') * 1.0).toFixed(2)}
+                  ${(parseFloat(tokenSelection.token1Amount || '0') * (assetPrices.get(tokenSelection.token1Hash) || 0)).toFixed(2)}
                 </div>
               </div>
               
@@ -541,7 +573,7 @@ const Pools = () => {
                   {tokenSelection.token2Amount} {tokenSelection.token2Symbol}
                 </div>
                 <div className="text-white font-medium">
-                  ${(parseFloat(tokenSelection.token2Amount || '0') * 0.5).toFixed(2)}
+                  ${(parseFloat(tokenSelection.token2Amount || '0') *(assetPrices.get(tokenSelection.token2Hash) || 0)).toFixed(2)}
                 </div>
               </div>
               
@@ -696,7 +728,7 @@ const Pools = () => {
           tipAngle={50}
           variant="white"
           gap={7}
-          className="w-full max-w-md"
+          className="w-full max-w-md mt-5"
           alpha={0.7}
           glassEffect={true}
           gradient={true}

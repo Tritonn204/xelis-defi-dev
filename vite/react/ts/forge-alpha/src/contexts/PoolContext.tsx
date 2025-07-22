@@ -3,10 +3,11 @@ import { useNode, NATIVE_ASSET_HASH } from '@/contexts/NodeContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { Asset } from '@/contexts/AssetContext';
 import Decimal from 'decimal.js';
+import { vmParam } from '@/utils/xvmSerializer';
+import { genericTransformer } from '@/utils/types';
 
 export interface PoolData {
   name: string
-  tvl: number
   tickers: [string, string]
   names: [string, string]
   hashes: [string, string]
@@ -14,6 +15,8 @@ export interface PoolData {
   userShare: string | undefined
   totalLpSupply: BigInt
 }
+
+const XEL_PRICE_URL = 'https://api.coinpaprika.com/v1/tickers/xel-xelis?quotes=USD,EUR,BTC'
 
 interface PoolContextType {
   activePools: Map<string, PoolData>;
@@ -59,7 +62,19 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return undefined
   }
 
+  // Get factory contract address
+  const getFactoryContract = () => {
+    if (currentNetwork === 'custom' && currentNode) {
+      const networkConfig = Array.from(customNetworks.values())
+        .find(network => network.name === currentNode.name)
+      
+      return networkConfig?.contractAddresses?.factory
+    }
+    return undefined
+  }
+
   const routerContract = getRouterContract();
+  const factoryContract = getFactoryContract();
 
   const loadPools = async () => {
     if (!routerContract) {
@@ -73,21 +88,23 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const assetMetaMap = new Map<string, Asset>();
       const assetList = await getContractAssets(routerContract);
+
+      console.log(assetList)
       const pools = new Map<string, PoolData>();
 
       for (const id of assetList) {
         if (id === NATIVE_ASSET_HASH) continue;
 
-        const data = await getContractData({
-          contract: routerContract,
-          key: {
-            type: "default",
-            value: {
-              type: "opaque",
-              value: { type: "Hash", value: id },
-            },
-          },
-        });
+        console.log("pre call")
+        let data: any = {}
+        try {
+          data = await getContractData({
+            contract: routerContract,
+            key: vmParam.hash(id),
+          });
+        } catch(err: any) {
+          continue;
+        }
 
         if (
           data?.data.type === "object" &&
@@ -103,6 +120,29 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const symbolA = dataA.ticker;
           const symbolB = dataB.ticker;
 
+          let forgeDataA: any;
+          let forgeDataB: any;
+          
+          try {
+            forgeDataA = await getContractData({
+              contract: factoryContract,
+              key: vmParam.hash(tokenA),
+            });
+
+            forgeDataA = genericTransformer(forgeDataA).data.value
+            console.log("forgeDataA", forgeDataA)
+          } catch(err: any) {}
+
+          try {
+            forgeDataB = await getContractData({
+              contract: factoryContract,
+              key: vmParam.hash(tokenB),
+            });
+
+            forgeDataB = genericTransformer(forgeDataB).data.value
+            console.log("forgeDataB", forgeDataB)
+          } catch(err: any) {}
+
           // Add asset A
           if (!assetMetaMap.has(tokenA)) {
             assetMetaMap.set(tokenA, {
@@ -111,7 +151,8 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name: dataA.name,
               balance: '0',
               price: 0,
-              logo: `/assets/${dataA.ticker.toLowerCase()}-logo.png`,
+              isForge: forgeDataA,
+              logo: forgeDataA && forgeDataA[4].value,
               decimals: dataA.decimals,
             });
           }
@@ -124,7 +165,8 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
               name: dataB.name,
               balance: '0',
               price: 0,
-              logo: `/assets/${dataB.ticker.toLowerCase()}-logo.png`,
+              isForge: forgeDataB,
+              logo: forgeDataB && forgeDataB[4].value,
               decimals: dataB.decimals,
             });
           }
@@ -149,7 +191,6 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const poolData: PoolData = {
             name: `${symbolA} - ${symbolB}`,
-            tvl: 0,
             tickers: [symbolA, symbolB],
             names: [dataA.name, dataB.name],
             hashes: [tokenA, tokenB],
@@ -165,7 +206,7 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPoolAssets(new Map(assetMetaMap))
       setActivePools(new Map(pools));
     } catch (error: any) {
-      console.error('Error loading pools:', error);
+      console.error('Error loading pools:', error.message || error);
       setPoolsError(error.message || 'Failed to load pools');
     } finally {
       setLoadingPools(false);
