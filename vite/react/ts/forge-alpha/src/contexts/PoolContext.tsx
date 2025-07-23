@@ -117,6 +117,8 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const dataA = await getAsset({ asset: tokenA });
           const dataB = await getAsset({ asset: tokenB });
+
+          console.log("dataA", dataA)
           const symbolA = dataA.ticker;
           const symbolB = dataB.ticker;
 
@@ -152,7 +154,7 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
               balance: '0',
               price: 0,
               isForge: forgeDataA,
-              logo: forgeDataA && forgeDataA[4].value,
+              logo: forgeDataA && forgeDataA[4]?.value,
               decimals: dataA.decimals,
             });
           }
@@ -166,7 +168,7 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
               balance: '0',
               price: 0,
               isForge: forgeDataB,
-              logo: forgeDataB && forgeDataB[4].value,
+              logo: forgeDataB && forgeDataB[4]?.value,
               decimals: dataB.decimals,
             });
           }

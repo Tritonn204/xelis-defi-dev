@@ -4,11 +4,17 @@ import { NATIVE_ASSET_HASH, useNode } from '@/contexts/NodeContext'
 import { usePools } from '@/contexts/PoolContext';
 import { useTransactionContext, type TransactionStatus } from '@/contexts/TransactionContext'
 
+import PoolListScreen from '@/components/pools/PoolListScreen';
+import SelectTokensScreen from '@/components/pools/SelectTokensScreen'
+import AddLiquidityScreen from '@/components/pools/AddLiquidityScreen'
+import ConfirmScreen from '@/components/pools/ConfirmLiquidityScreen'
+import ResultScreen from '@/components/pools/Result'
+
 import { Settings } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import GeometricAccents from '@/components/ui/GeometricAccents'
 import LiquidityInput from '@/components/pools/LiquidityInput'
-import { PoolList, type PoolData } from '@/components/pools/PoolList'
+import { PoolList } from '@/components/pools/PoolList'
 import PoolStats from '@/components/pools/PoolStats'
 import { ArrowLeft } from 'lucide-react'
 
@@ -274,446 +280,81 @@ const Pools = () => {
     switch (currentScreen) {
       case SCREENS.LIST:
         return (
-          <>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-semibold text-white">Liquidity Pools</h2>
-              <button className="text-gray-400 hover:text-white">
-                <Settings className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <Button
-              onClick={handleAddLiquidity}
-              focusOnClick={false}
-              className="
-                w-full 
-                bg-forge-orange 
-                hover:bg-forge-orange/90 
-                disabled:bg-gray-600 
-                text-white 
-                font-light
-                text-[1.5rem]
-                py-1 px-4 
-                rounded-xl 
-                transition-all duration-200
-                hover:shadow-lg
-                hover:ring-2 ring-white
-                hover:scale-[1.015]
-                active:scale-[0.98]
-              "
-              disabled={!routerContract && isConnected}
-              isLoading={connecting}
-              staticSize={true}
-            >
-              {isConnected ? 'Add Liquidity' : 'Connect Wallet'}
-            </Button>
-            
-            {!routerContract && isConnected && (
-              <div className="mt-2 text-red-500 text-sm text-center">
-                Router contract not found for this network
-              </div>
-            )}
-            
-            {poolsError && (
-              <div className="mt-2 text-red-500 text-sm text-center">
-                {poolsError}
-              </div>
-            )}
-            
-            <div className="mt-2">
-              {loadingPools ? (
-                <div className="text-center py-6">
-                  <div className="animate-spin h-8 w-8 border-4 border-forge-orange border-t-transparent rounded-full mx-auto mb-4"></div>
-                  <div className="text-white">Loading pools...</div>
-                </div>
-              ) : (
-                <PoolList pools={activePools} />
-              )}
-            </div>
-          </>
+          <PoolListScreen
+            onAddLiquidity={handleAddLiquidity}
+            pools={activePools}
+            loading={loadingPools}
+            error={poolsError || undefined}
+            routerContract={routerContract}
+            isConnected={isConnected}
+            connecting={connecting}
+          />
         )
-            
+
       case SCREENS.SELECT_TOKENS:
         return (
-          <>
-            <div className="flex items-center mb-4">
-              <button 
-                className="text-gray-400 hover:text-white mr-2"
-                onClick={() => goToScreen(SCREENS.LIST)}
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <h2 className="text-xl font-semibold text-white">Select Tokens</h2>
-            </div>
-            
-            <div className="text-gray-300 mb-4">
-              Select two tokens to add liquidity
-            </div>
-            
-            {loadingAssets ? (
-              <div className="text-center py-6">
-                <div className="animate-spin h-8 w-8 border-4 border-forge-orange border-t-transparent rounded-full mx-auto mb-4"></div>
-                <div className="text-white">Loading assets...</div>
-              </div>
-            ) : (
-              <>
-                {/* Token selection component */}
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div className="bg-black/70 rounded-xl p-3 border border-white/12">
-                    <div className="text-white font-medium mb-2">Token 1</div>
-                    <select 
-                      className="w-full bg-black/80 text-white p-2 rounded-lg border border-white/20"
-                      onChange={(e) => setTokenSelection({
-                        ...tokenSelection,
-                        token1Hash: e.target.value,
-                        token1Symbol: assets[e.target.value]?.symbol || 'Unknown'
-                      })}
-                      value={tokenSelection.token1Hash || ''}
-                    >
-                      <option value="">Select Token</option>
-                      {availableAssets.map(asset => (
-                        <option key={asset.hash} value={asset.hash}>
-                          {asset.symbol} - {asset.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="bg-black/70 rounded-xl p-3 border border-white/12">
-                    <div className="text-white font-medium mb-2">Token 2</div>
-                    <select 
-                      className="w-full bg-black/80 text-white p-2 rounded-lg border border-white/20"
-                      onChange={(e) => setTokenSelection({
-                        ...tokenSelection,
-                        token2Hash: e.target.value,
-                        token2Symbol: assets[e.target.value]?.symbol || 'Unknown'
-                      })}
-                      value={tokenSelection.token2Hash || ''}
-                    >
-                      <option value="">Select Token</option>
-                      {availableAssets.map(asset => (
-                        <option key={asset.hash} value={asset.hash}>
-                          {asset.symbol} - {asset.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                
-                <Button
-                  onClick={() => handleSelectTokens(
-                    tokenSelection.token1Hash,
-                    tokenSelection.token2Hash
-                  )}
-                  focusOnClick={false}
-                  className="
-                    w-full 
-                    bg-forge-orange 
-                    hover:bg-forge-orange/90 
-                    disabled:bg-gray-600
-                    text-white 
-                    font-light
-                    text-[1.5rem]
-                    py-1 px-4 
-                    rounded-xl 
-                    transition-all duration-200
-                    hover:shadow-lg
-                    hover:ring-2 ring-white
-                    hover:scale-[1.015]
-                    active:scale-[0.98]
-                  "
-                  disabled={!tokenSelection.token1Hash || !tokenSelection.token2Hash}
-                >
-                  Continue
-                </Button>
-              </>
-            )}
-          </>
+          <SelectTokensScreen
+            goBack={() => goToScreen(SCREENS.LIST)}
+            onContinue={(token1, token2) => handleSelectTokens(token1, token2)}
+            tokenSelection={tokenSelection}
+            setTokenSelection={(partial) => setTokenSelection(prev => ({ ...prev, ...partial }))}
+            loadingAssets={loadingAssets}
+            availableAssets={availableAssets}
+            assets={assets}
+          />
         )
-      
+
       case SCREENS.ADD_LIQUIDITY:
         return (
-          <>
-            <div className="flex items-center mb-4">
-              <button 
-                className="text-gray-400 hover:text-white mr-2"
-                onClick={() => goToScreen(SCREENS.SELECT_TOKENS)}
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <h2 className="text-xl font-semibold text-white">Add Liquidity</h2>
-            </div>
-            <div className="text-gray-300 mb-4">
-              Enter the amount of tokens you want to deposit
-            </div>
-            
-            <div className="relative">
-              {/* First token input */}
-              <div className="-mb-6">
-                <LiquidityInput 
-                  label={`${tokenSelection.token1Symbol} Amount`}
-                  amount={tokenSelection.token1Amount}
-                  onChange={(value: number) => handleAmountChange('token1Amount', value)}
-                  tokenHash={tokenSelection.token1Hash}
-                />
-              </div>
-              
-              {/* Plus sign between inputs */}
-              <div className="flex justify-center items-center">
-                <div className="text-white text-4xl">+</div>
-              </div>
-              
-              {/* Second token input */}
-              <div className="-mt-4">
-                <LiquidityInput 
-                  label={`${tokenSelection.token2Symbol} Amount`}
-                  amount={tokenSelection.token2Amount}
-                  onChange={(value: number) => handleAmountChange('token2Amount', value)}
-                  tokenHash={tokenSelection.token2Hash}
-                />
-              </div>
-            </div>
-            
-            {(assetPrices.get(tokenSelection.token1Hash) || 0 > 0 && assetPrices.get(tokenSelection.token2Hash) || 0 > 0) && (
-              <div className="flex items-center justify-between  ml-1 mt-2 mr-1 mb-2">
-                <label htmlFor="autofill-toggle" className="text-white text-sm">
-                  Autofill other token using price
-                </label>
-                <input
-                  id="autofill-toggle"
-                  type="checkbox"
-                  className="w-5 h-5 accent-forge-orange"
-                  checked={autoFillEnabled}
-                  onChange={(e) => setAutoFillEnabled(e.target.checked)}
-                />
-              </div>
-            )}
-
-            <div className="mt-2">
-              <Button
-                onClick={() => goToScreen(SCREENS.CONFIRM)}
-                focusOnClick={false}
-                className="
-                  w-full 
-                  bg-forge-orange 
-                  hover:bg-forge-orange/90 
-                  disabled:bg-gray-600 
-                  text-white 
-                  font-light
-                  text-[1.5rem]
-                  py-1 px-4 
-                  rounded-xl 
-                  transition-all duration-200
-                  hover:shadow-lg
-                  hover:ring-2 ring-white
-                  hover:scale-[1.015]
-                  active:scale-[0.98]
-                "
-                disabled={!tokenSelection.token1Amount || !tokenSelection.token2Amount}
-              >
-                Review
-              </Button>
-            </div>
-          </>
+          <AddLiquidityScreen
+            goBack={() => goToScreen(SCREENS.SELECT_TOKENS)}
+            goNext={() => goToScreen(SCREENS.CONFIRM)}
+            tokenSelection={tokenSelection}
+            handleAmountChange={handleAmountChange}
+            autoFillEnabled={autoFillEnabled}
+            setAutoFillEnabled={setAutoFillEnabled}
+            assetPrices={assetPrices}
+          />
         )
-      
+
       case SCREENS.CONFIRM:
-        const poolKey1 = `${tokenSelection.token1Hash}_${tokenSelection.token2Hash}`
-        const poolKey2 = `${tokenSelection.token2Hash}_${tokenSelection.token1Hash}`
-        const pool = activePools.get(poolKey1) || activePools.get(poolKey2)
-
-        let estimatedLpTokens: string;
-
-        const tokenAAmountAtomic = new Decimal(tokenSelection.token1Amount || 0).mul(10 ** tokenSelection.token1Decimals);
-        const tokenBAmountAtomic = new Decimal(tokenSelection.token2Amount || 0).mul(10 ** tokenSelection.token2Decimals);
-
-        if (pool) {
-          const poolLockedA = new Decimal(pool.locked[0]); // atomic
-          const poolLockedB = new Decimal(pool.locked[1]); // atomic
-          const totalLPSupply = new Decimal(pool.totalLpSupply.toString()); // atomic
-
-          const ratioA = tokenAAmountAtomic.div(poolLockedA || 1);
-          const ratioB = tokenBAmountAtomic.div(poolLockedB || 1);
-          const shareRatio = Decimal.min(ratioA, ratioB);
-
-          const lpAmountAtomic = totalLPSupply.mul(shareRatio);
-          estimatedLpTokens = lpAmountAtomic.div(1e8).toFixed(8);
-        } else {
-          const lpAmountAtomic = tokenAAmountAtomic.mul(tokenBAmountAtomic).sqrt();
-          const MINIMUM_LIQUIDITY = new Decimal(1000);
-          estimatedLpTokens = lpAmountAtomic.sub(MINIMUM_LIQUIDITY).div(1e8).toFixed(8);
-        }
-
         return (
-          <>
-            <div className="flex items-center mb-4">
-              <button 
-                className="text-gray-400 hover:text-white mr-2"
-                onClick={() => goToScreen(SCREENS.ADD_LIQUIDITY)}
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <h2 className="text-xl font-semibold text-white">Confirm</h2>
-            </div>
-            
-            <div className="bg-black/70 rounded-xl p-4 border border-white/12 mb-4">
-              <h3 className="text-lg font-medium text-white mb-3">You are adding</h3>
-              
-              <div className="flex justify-between items-center mb-2">
-                <div className="text-gray-300">
-                  {tokenSelection.token1Amount} {tokenSelection.token1Symbol}
-                </div>
-                <div className="text-white font-medium">
-                  ${(parseFloat(tokenSelection.token1Amount || '0') * (assetPrices.get(tokenSelection.token1Hash) || 0)).toFixed(2)}
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center mb-4">
-                <div className="text-gray-300">
-                  {tokenSelection.token2Amount} {tokenSelection.token2Symbol}
-                </div>
-                <div className="text-white font-medium">
-                  ${(parseFloat(tokenSelection.token2Amount || '0') *(assetPrices.get(tokenSelection.token2Hash) || 0)).toFixed(2)}
-                </div>
-              </div>
-              
-              <div className="border-t border-white/10 pt-3">
-                <div className="flex justify-between items-center">
-                  <div className="text-gray-300">Estimated LP tokens</div>
-                  <div className="text-white font-medium">
-                    {estimatedLpTokens.toString()} LP
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center mt-2">
-                  <div className="text-gray-300">Router contract</div>
-                  <div className="text-white font-medium text-xs truncate max-w-[200px]">
-                    {routerContract}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <Button
-              onClick={submitAddLiquidity}
-              focusOnClick={false}
-              className="
-                w-full 
-                bg-forge-orange 
-                hover:bg-forge-orange/90 
-                disabled:bg-gray-600 
-                text-white 
-                font-light
-                text-[1.5rem]
-                py-1 px-4 
-                rounded-xl 
-                transition-all duration-200
-                hover:shadow-lg
-                hover:ring-2 ring-white
-                hover:scale-[1.015]
-                active:scale-[0.98]
-              "
-              isLoading={isSubmitting}
-              staticSize={true}
-            >
-              Confirm
-            </Button>
-          </>
+          <ConfirmScreen
+            goBack={() => goToScreen(SCREENS.ADD_LIQUIDITY)}
+            onSubmit={submitAddLiquidity}
+            tokenSelection={tokenSelection}
+            assetPrices={assetPrices}
+            activePools={activePools}
+            isSubmitting={isSubmitting}
+            routerContract={routerContract}
+          />
         )
-      
+
       case SCREENS.SUCCESS:
         return (
-          <div className="text-center py-6">
-            <div className="text-green-400 text-3xl mb-4">✓</div>
-            <h2 className="text-xl font-semibold text-white mb-3">Liquidity Added!</h2>
-            
-            {txHash && (
-              <div className="text-gray-400 mb-4 break-all">
-                {txHash}
-              </div>
-            )}
-            
-            <Button
-              onClick={() => goToScreen(SCREENS.LIST)}
-              focusOnClick={false}
-              className="
-                w-full 
-                bg-forge-orange 
-                hover:bg-forge-orange/90 
-                text-white 
-                font-light
-                text-[1.5rem]
-                py-1 px-4 
-                rounded-xl 
-                transition-all duration-200
-                hover:shadow-lg
-                hover:ring-2 ring-white
-                hover:scale-[1.015]
-                active:scale-[0.98]
-              "
-            >
-              Back to Pools
-            </Button>
-          </div>
+          <ResultScreen
+            type="success"
+            title="Liquidity Added!"
+            message="Your transaction was successful."
+            txHash={txHash}
+            onPrimary={() => goToScreen(SCREENS.LIST)}
+            primaryLabel="Back to Pools"
+          />
         )
-      
+
       case SCREENS.ERROR:
         return (
-          <div className="text-center py-6">
-            <div className="text-red-500 text-3xl mb-4">✗</div>
-            <h2 className="text-xl font-semibold text-white mb-3">Failed to Add Liquidity</h2>
-            
-            {error && (
-              <div className="text-red-400 mb-4">
-                {error}
-              </div>
-            )}
-            
-            <div className="flex flex-col space-y-3">
-              <Button
-                onClick={() => goToScreen(SCREENS.ADD_LIQUIDITY)}
-                focusOnClick={false}
-                className="
-                  w-full 
-                  bg-forge-orange 
-                  hover:bg-forge-orange/90 
-                  text-white 
-                  font-light
-                  text-[1.5rem]
-                  py-1 px-4 
-                  rounded-xl 
-                  transition-all duration-200
-                  hover:shadow-lg
-                  hover:ring-2 ring-white
-                  hover:scale-[1.015]
-                  active:scale-[0.98]
-                "
-              >
-                Try Again
-              </Button>
-              
-              <Button
-                onClick={() => goToScreen(SCREENS.LIST)}
-                focusOnClick={false}
-                className="
-                  w-full 
-                  bg-transparent
-                  border border-white/20
-                  hover:bg-white/10
-                  text-white 
-                  font-light
-                  text-[1.5rem]
-                  py-1 px-4 
-                  rounded-xl 
-                  transition-all duration-200
-                "
-              >
-                Back to Pools
-              </Button>
-            </div>
-          </div>
+          <ResultScreen
+            type="error"
+            title="Failed to Add Liquidity"
+            error={error}
+            onPrimary={() => goToScreen(SCREENS.ADD_LIQUIDITY)}
+            primaryLabel="Try Again"
+            onSecondary={() => goToScreen(SCREENS.LIST)}
+            secondaryLabel="Back to Pools"
+          />
         )
-      
+
       default:
         return null
     }

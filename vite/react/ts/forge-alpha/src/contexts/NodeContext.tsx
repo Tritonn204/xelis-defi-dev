@@ -1,9 +1,10 @@
 import { createContext, useContext, useReducer, useEffect, useRef, type ReactNode } from 'react'
-import { TESTNET_NODE_WS, MAINNET_NODE_WS } from '@xelis/sdk/config.js'
-import DaemonWS from '@xelis/sdk/daemon/websocket.js'
-import * as types from '@xelis/sdk/daemon/types.js'
+import { TESTNET_NODE_WS, MAINNET_NODE_WS } from '@xelis/sdk/config'
+import DaemonWS from '@xelis/sdk/daemon/websocket'
+import * as types from '@xelis/sdk/daemon/types'
 
 import { genericTransformer, responseTransformers} from '../utils/types'
+import { AppTxError } from '@/types/errors'
 
 type NetworkType = 'mainnet' | 'testnet' | 'custom'
 
@@ -15,6 +16,18 @@ interface NodeConfig {
 interface NetworkConfig {
   [key: string]: NodeConfig[] | 'custom'
 }
+
+export interface TxWatchSuccess {
+  success: true
+  hash: string
+}
+
+export interface TxWatchFailure {
+  success: false
+  error: AppTxError
+}
+
+export type TxWatchResult = TxWatchSuccess | TxWatchFailure
 
 export interface CustomNetworkConfig {
   name: string
@@ -71,7 +84,7 @@ interface NodeContextType extends NodeState {
   getTopBlock: (params?: types.GetTopBlockParams) => Promise<types.Block>
   
   // Transaction queries
-  getTransaction: (params: types.GetTransactionParams) => Promise<types.TransactionResponse>
+  getTransaction: (txHash: string) => Promise<types.TransactionResponse>
   getTransactions: (txHashes: string[]) => Promise<types.TransactionResponse[]>
   getMempool: (params?: types.GetMempoolParams) => Promise<types.GetMempoolResult>
   getEstimatedFeeRates: () => Promise<types.FeeRatesEstimated>
@@ -88,7 +101,7 @@ interface NodeContextType extends NodeState {
   getContractOutputs: (params: any) => Promise<any>
   
   // Smart contract queries
-  getContractData: (params: types.GetContractDataParams) => Promise<types.GetContractDataResult>
+  getContractData: (params: types.GetContractDataPrams) => Promise<types.GetContractDataResult>
   getContractBalance: (params: types.GetContractBalanceParams) => Promise<types.GetContractBalanceResult>
   getContractModule: (params: types.GetContractModuleParams) => Promise<types.GetContractModuleResult>
   getContractAssets: (contract: string) => Promise<string[]>
@@ -99,7 +112,7 @@ interface NodeContextType extends NodeState {
   
   availableNetworks: NetworkType[]
   availableNodes: NodeConfig[] | 'custom'
-  awaitTx: (txHash: string, callback: () => void) => void
+  awaitTx: (txHash: string, callback: (result: TxWatchResult) => void) => void
   recentBlocks: types.Block[]
 }
 
@@ -194,7 +207,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const reconnectTimeoutRef = useRef<number | null>(null)
   const customNetworksRef = useRef<Map<string, CustomNetworkConfig>>(new Map())
   const recentBlocksRef = useRef<types.Block[]>([])
-  const txWatchQueueRef = useRef<Map<string, () => void>>(new Map())
+  const txWatchQueueRef = useRef<Map<string, (result: TxWatchResult) => void>>(new Map())
   const stableHeightRef = useRef<BigInt>(0n)
 
   // Macro-like method wrapper with proper TypeScript generics
@@ -291,8 +304,27 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     await connectToNetwork(state.currentNetwork)
   }
 
-  const awaitTx = (txHash: string, callback: () => void) => {
+  const awaitTx = (txHash: string, callback: (result: TxWatchResult) => void) => {
     txWatchQueueRef.current.set(txHash, callback)
+  }
+
+  const cancelWatchedTx = (txHash: string, reason?: Partial<AppTxError>) => {
+    const callback = txWatchQueueRef.current.get(txHash)
+    if (callback) {
+      try {
+        callback({
+          success: false,
+          error: {
+            type: reason?.type || 'TIMEOUT',
+            message: reason?.message || `Transaction ${txHash} timed out waiting for confirmation.`,
+            code: reason?.code,
+          }
+        })
+      } catch (e) {
+        console.error(`Error running timeout callback for TX ${txHash}:`, e)
+      }
+      txWatchQueueRef.current.delete(txHash)
+    }
   }
 
   const disconnect = async () => {
@@ -351,9 +383,10 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
 
     const callback = eventCallbacksRef.current.get(event)
     if (callback) {
-      daemonRef.current.off(event, callback)
-      eventCallbacksRef.current.delete(event)
-      dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
+      daemonRef.current.methods.ws.closeAllListens(event).then(() => {
+        eventCallbacksRef.current.delete(event)
+        dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
+      })
     }
   }
 
@@ -369,8 +402,8 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
 
   // Transaction queries
   // const getTransaction = createRPCMethodWrapper<types.TransactionResponse, [types.GetTransactionParams]>('getTransaction')
-  const getTransaction = async (params: types.GetTransactionParams) => {
-    return await daemonRef.current.dataCall("get_transaction", params)
+  const getTransaction = async (txHash: string) => {
+    return await daemonRef.current!.dataCall("get_transaction", txHash) as types.TransactionResponse
   }
   const getTransactions = createRPCMethodWrapper<types.TransactionResponse[], [string[]]>('getTransactions')
   const getMempool = createRPCMethodWrapper<types.GetMempoolResult, [types.GetMempoolParams?]>('getMemPool')
@@ -383,29 +416,29 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
 
   // Asset queries
   const getAsset = async (params: types.GetAssetParams) => {
-    return await daemonRef.current.dataCall("get_asset", params)
+    return await daemonRef.current!.dataCall("get_asset", params) as types.AssetData
   }
   const getAssetSupply = async (params: types.GetAssetParams) => {
-    return await daemonRef.current.dataCall("get_asset_supply", params)
+    return await daemonRef.current!.dataCall("get_asset_supply", params)
   }
   const getAssets = createRPCMethodWrapper<string[], [types.GetAssetsParams?]>('getAssets')
 
   // Smart contract queries
-  const getContractData = async (params: types.GetContractDataParams) => {
-    const res = await daemonRef.current.dataCall("get_contract_data", params)
-    return responseTransformers.contractDataTransformer(res)
+  const getContractData = async (params: types.GetContractDataPrams) => {
+    const res: any = await daemonRef.current!.dataCall("get_contract_data", params)
+    return responseTransformers.contractDataTransformer(res) as types.GetContractDataResult
   }
   const getContractBalance = async (params: types.GetContractBalanceParams) => {
-    const res = await daemonRef.current.dataCall("get_contract_balance", params)
+    const res = await daemonRef.current!.dataCall("get_contract_balance", params) as types.GetContractBalanceResult
     return res
   }
   const getContractModule = createContractMethodWrapper<types.GetContractModuleResult, [types.GetContractModuleParams]>('getContractModule')
   const getContractAssets = async (contract: string) => {
-    const res = await daemonRef.current.dataCall("get_contract_assets", {contract})
-    return res
+    const res = await daemonRef.current!.dataCall("get_contract_assets", {contract})
+    return res as string[]
   }
   const getContractOutputs = async (params: any) => {
-    const res = await daemonRef.current.dataCall("get_contract_outputs", params)
+    const res = await daemonRef.current!.dataCall("get_contract_outputs", params)
     return res
   }
 
@@ -447,7 +480,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       const callback = txWatchQueueRef.current.get(txHash)
       if (callback) {
         try {
-          callback()
+          callback({ success: true, hash: txHash })
         } catch (err) {
           console.error(`Callback for TX ${txHash} failed:`, err)
         }

@@ -1,31 +1,40 @@
-import React, { useEffect, useState } from 'react'
-
-import { ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react'
-
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react';
 import { TokenIcon } from '../ui/TokenIcon';
-import { formatCompactNumber } from '../../utils/number';
+import { formatCompactNumber } from '@/utils/number';
 import { PoolData, usePools } from '@/contexts/PoolContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { usePrices } from '@/contexts/PriceContext';
 import { NATIVE_ASSET_HASH } from '@/contexts/NodeContext';
-
 import Decimal from 'decimal.js';
 import Button from '../ui/Button';
 import Tooltip from '../ui/Tooltip';
+import { useViewState } from '@/contexts/ViewStateContext';
 
 interface PoolListProps {
   pools?: Map<string, PoolData>;
 }
 
-const d10 = new Decimal(10)
+const d10 = new Decimal(10);
 
 export const PoolList = ({
   pools = new Map<string, PoolData>()
 }: PoolListProps) => {
+  const { isConnected } = useWallet();
+  const { poolTVLs } = usePrices();
+  const poolEntries = Array.from(pools.entries());
+
+  const { getState, setState } = useViewState();
+  const sortKey = 'poolList';
+  const state = getState(sortKey);
+
   const [expandedPools, setExpandedPools] = useState<Set<string>>(new Set());
 
-  const { isConnected } = useWallet()
-  const { poolTVLs } = usePrices()
+  // Initialize state defaults
+  const searchTerm = state.searchTerm ?? '';
+  const showNonXel = state.showNonXel ?? false;
+  const sortBy = state.sortBy ?? 'TVL';
+  const sortAsc = state.sortAsc ?? false;
 
   const togglePool = (key: string) => {
     setExpandedPools(prev => {
@@ -34,23 +43,25 @@ export const PoolList = ({
       return next;
     });
   };
-  const poolEntries = Array.from(pools.entries());
 
-  if (poolEntries.length === 0) {
-    return (
-      <div className="text-center py-6 text-gray-400">
-        No active pools found
-      </div>
-    );
-  }
+  const handleSearchChange = (val: string) => {
+    setState(sortKey, { searchTerm: val });
+  };
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showNonXel, setshowNonXel] = useState(false);
-  const [sortBy, setSortBy] = useState<'TVL' | 'Share'>('TVL');
-  const [sortAsc, setSortAsc] = useState(false);
+  const handleShowNonXelChange = (val: boolean) => {
+    setState(sortKey, { showNonXel: val });
+  };
 
-  const filterAndSortPools = () => {
-    return [...poolEntries]
+  const handleSortByChange = (val: 'TVL' | 'Share') => {
+    setState(sortKey, { sortBy: val });
+  };
+
+  const handleSortAscChange = (val: boolean) => {
+    setState(sortKey, { sortAsc: val });
+  };
+
+  const filteredAndSortedPools = useMemo(() => {
+    return poolEntries
       .filter(([_, pool]) => {
         const q = searchTerm.toLowerCase();
         return (
@@ -60,25 +71,34 @@ export const PoolList = ({
         );
       })
       .filter(([_, pool]) => {
-        if (showNonXel) return true;
-        return pool.hashes.includes(NATIVE_ASSET_HASH);
+        return showNonXel || pool.hashes.includes(NATIVE_ASSET_HASH);
       })
       .sort((a, b) => {
-        const key = sortBy === 'TVL' ? poolTVLs : new Map(poolEntries.map(([k, p]) => [k, p.userShare ?? 0]));
-        const aVal = key.get(a[0]) as number ?? 0;
-        const bVal = key.get(b[0]) as number ?? 0;
+        const map = sortBy === 'TVL'
+          ? poolTVLs
+          : new Map(poolEntries.map(([k, p]) => [k, p.userShare ?? 0]));
+        const aVal = map.get(a[0]) as number ?? 0;
+        const bVal = map.get(b[0]) as number ?? 0;
         return sortAsc ? aVal - bVal : bVal - aVal;
       });
-  };
+  }, [poolEntries, poolTVLs, searchTerm, showNonXel, sortBy, sortAsc]);
+
+  if (poolEntries.length === 0) {
+    return (
+      <div className="text-center py-6 text-gray-400">
+        No active pools found
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-1 w-full max-w-5xl mx-auto ">
+    <div className="space-y-1 w-full max-w-5xl mx-auto">
       {/* Search Bar */}
       <div className="bg-black/60 rounded-xl p-3 border border-white/15">
         <input
           type="text"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Search LP/Token Name or Asset ID"
           className="w-full bg-black/80 text-white p-2 rounded-lg border border-white/20 focus:outline-none focus:border-forge-orange"
         />
@@ -86,24 +106,24 @@ export const PoolList = ({
 
       {/* Filter & Sort Controls */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 bg-black/60 rounded-xl p-1 border border-white/15">
-        {/* Checkbox for XEL pairs */}
+        {/* Checkbox */}
         <label className="flex items-center space-x-2 ml-2 mb-1.5 text-white">
           <input
             type="checkbox"
             checked={showNonXel}
-            onChange={() => setshowNonXel(prev => !prev)}
+            onChange={() => handleShowNonXelChange(!showNonXel)}
             className="form-checkbox rounded text-forge-orange border-white/20"
           />
-          <span className='text-left text-forge-orange text-sm'>Show Non-XEL Pairs</span>
+          <span className="text-left text-forge-orange text-sm">Show Non-XEL Pairs</span>
         </label>
 
-        {/* Sort options */}
+        {/* Sort Options */}
         <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
           <div className="flex items-center space-x-2">
             <label className="text-white text-sm">Sort by:</label>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'TVL' | 'Share')}
+              onChange={(e) => handleSortByChange(e.target.value as 'TVL' | 'Share')}
               className="bg-black/80 text-white p-1 rounded-lg border border-white/20 focus:outline-none"
             >
               <option value="TVL">TVL</option>
@@ -113,15 +133,13 @@ export const PoolList = ({
 
           <Tooltip content={`Click to Sort in ${!sortAsc ? 'Ascending' : 'Descending'} Order`}>
             <Button
-              onClick={() => setSortAsc(!sortAsc)}
+              onClick={() => handleSortAscChange(!sortAsc)}
               focusOnClick={false}
               className="bg-black/70 border border-white/20 rounded-lg p-2 hover:bg-white/10 transition"
             >
-              {sortAsc ? (
-                <ArrowDown className="w-4 h-4 text-white transition-transform duration-200" />
-              ) : (
-                <ArrowUp className="w-4 h-4 text-white transition-transform duration-200" />
-              )}
+              {sortAsc
+                ? <ArrowDown className="w-4 h-4 text-white transition-transform duration-200" />
+                : <ArrowUp className="w-4 h-4 text-white transition-transform duration-200" />}
             </Button>
           </Tooltip>
         </div>
@@ -129,12 +147,12 @@ export const PoolList = ({
 
       {/* Scrollable Pool List */}
       <div className="overflow-y-auto h-[55vh] pr-1 space-y-1">
-        {filterAndSortPools().length === 0 ? (
+        {filteredAndSortedPools.length === 0 ? (
           <div className="text-center py-6 text-gray-400">
             No matching pools found
           </div>
         ) : (
-          filterAndSortPools().map(([key, pool]) => {
+          filteredAndSortedPools.map(([key, pool]) => {
             const isExpanded = expandedPools.has(key);
             const TVL = poolTVLs.get(key) ?? 0;
 
@@ -145,7 +163,6 @@ export const PoolList = ({
                 className="bg-black/70 rounded-xl px-2 py-2 border border-white/12 hover:border-white/30 transition-all cursor-pointer overflow-visible"
               >
                 <div className="relative min-h-14 flex items-center">
-                  {/* Left: Pool Info */}
                   <div className="ml-2 z-10 text-left">
                     <div className="text-white text-[13pt] font-normal flex items-center space-x-1">
                       <span>{pool.name}</span>
@@ -156,11 +173,10 @@ export const PoolList = ({
                       )}
                     </div>
                     <div className="text-forge-orange/80 text-sm">
-                      TVL: <span className="text-forge-orange font-bold">${formatCompactNumber(TVL).toLocaleString()}</span> USD
+                      TVL: <span className="text-forge-orange font-bold">${formatCompactNumber(TVL)}</span> USD
                     </div>
                   </div>
 
-                  {/* Center: Diagonal Token Icons */}
                   <div className="absolute left-1/2 -translate-x-1/2 z-0">
                     <div className="relative w-fit h-fit">
                       <div className="-ml-4">
@@ -172,7 +188,6 @@ export const PoolList = ({
                     </div>
                   </div>
 
-                  {/* Right: LP Share */}
                   <div className="ml-auto mr-2 text-right text-forge-orange/80 text-md z-10">
                     LP Share: <span className={`${isConnected ? 'text-forge-orange' : 'text-white/20'} font-bold text-md`}>
                       {pool.userShare ?? '--'}%
@@ -180,18 +195,13 @@ export const PoolList = ({
                   </div>
                 </div>
 
-                {/* Expandable Detail */}
                 <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-40 mt-3 opacity-100' : 'max-h-0 opacity-0'}`}>
                   <div className="bg-black/50 rounded-md p-2 text-sm text-gray-300 space-y-1">
-                    {pool.locked.map((amount, index) => {
-                      const symbol = pool.tickers[index];
-                      const formatted = formatCompactNumber(amount);
-                      return (
-                        <div key={index}>
-                          {symbol} – {formatted}
-                        </div>
-                      );
-                    })}
+                    {pool.locked.map((amount, index) => (
+                      <div key={index}>
+                        {pool.tickers[index]} – {formatCompactNumber(amount)}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

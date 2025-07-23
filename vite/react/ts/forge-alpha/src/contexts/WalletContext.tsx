@@ -320,15 +320,59 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const unsubscribeFromWalletEvent = (event: types.RPCEvent) => {
-    // if (!xswdRef.current) return
+    if (!xswdRef.current) return
 
-    // const callback = eventCallbacksRef.current.get(event)
-    // if (callback) {
-    //   xswdRef.current.off(event, callback)
-    //   eventCallbacksRef.current.delete(event)
-    //   dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
-    // }
+    const callback = eventCallbacksRef.current.get(event)
+    if (callback) {
+      xswdRef.current.wallet.ws.closeAllListens(event).then(() => {
+        eventCallbacksRef.current.delete(event)
+        dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
+      })
+    }
   }
+
+  useEffect(() => {
+    let heartbeatInterval: NodeJS.Timeout;
+
+    const getInfoWithTimeout = async (timeoutMs = 5000) => {
+      if (!xswdRef.current) throw new Error("XSWD not initialized");
+
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("getInfo timed out")), timeoutMs)
+      );
+
+      const infoCall = xswdRef.current.daemon.getInfo();
+
+      return Promise.race([infoCall, timeout]);
+    };
+
+    const heartbeatCheck = async () => {
+      if (!xswdRef.current || !state.isConnected) return;
+
+      try {
+        await getInfoWithTimeout(30000);
+      } catch (error) {
+        console.warn("Heartbeat failed. Disconnecting wallet:", error);
+        dispatch({ type: 'DISCONNECT' });
+
+        try {
+          await xswdRef.current?.close();
+        } catch (e) {
+          console.error("Error closing xswd during heartbeat cleanup:", e);
+        }
+
+        xswdRef.current = null;
+      }
+    };
+
+    if (state.isConnected) {
+      heartbeatInterval = setInterval(heartbeatCheck, 30000); // 30s interval
+    }
+
+    return () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+    };
+  }, [state.isConnected]);
 
   // Cleanup on unmount
   useEffect(() => {
