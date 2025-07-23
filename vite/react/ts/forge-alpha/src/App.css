@@ -103,7 +103,6 @@ a:active {
   scrollbar-color: #695637 transparent
 }
 
-
 /* For Chrome, EDGE, Opera, Others */
 .scrollbar::-webkit-scrollbar {
   width: 20px;
@@ -115,4 +114,9 @@ a:active {
 
 .scrollbar::-webkit-scrollbar-thumb { 
   background:#000;
+}
+
+.mask-fade-out {
+  mask-image: linear-gradient(to bottom, black 99%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 99%, transparent 100%);
 }

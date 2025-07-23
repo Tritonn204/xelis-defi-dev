@@ -5,6 +5,7 @@ import { Asset } from '@/contexts/AssetContext';
 import Decimal from 'decimal.js';
 import { vmParam } from '@/utils/xvmSerializer';
 import { genericTransformer } from '@/utils/types';
+import { getForgeMetaForAssets } from '@/utils/getForgeMeta';
 
 export interface PoolData {
   name: string
@@ -89,7 +90,24 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const assetMetaMap = new Map<string, Asset>();
       const assetList = await getContractAssets(routerContract);
 
-      console.log(assetList)
+      const tokenHashes = new Set<string>();
+      for (const id of assetList) {
+        if (id === NATIVE_ASSET_HASH) continue;
+        try {
+          const data = await getContractData({ contract: routerContract, key: vmParam.hash(id) });
+          if (data?.data?.type === 'object' && data.data.value[1]?.type === 'map') {
+            const lpMap = data.data.value[1].value;
+            Object.keys(lpMap).forEach(hash => tokenHashes.add(hash));
+          }
+        } catch(err: any) {
+          continue;
+        }
+      }
+
+      const forgeMetaMap = factoryContract
+        ? await getForgeMetaForAssets(factoryContract, Array.from(tokenHashes), getContractData)
+        : {};
+
       const pools = new Map<string, PoolData>();
 
       for (const id of assetList) {
@@ -116,62 +134,35 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const poolKey = `${tokenA}_${tokenB}`;
 
           const dataA = await getAsset({ asset: tokenA });
-          const dataB = await getAsset({ asset: tokenB });
+          const dataB = await getAsset({ asset: tokenB }); 
 
-          console.log("dataA", dataA)
           const symbolA = dataA.ticker;
           const symbolB = dataB.ticker;
 
-          let forgeDataA: any;
-          let forgeDataB: any;
-          
-          try {
-            forgeDataA = await getContractData({
-              contract: factoryContract,
-              key: vmParam.hash(tokenA),
-            });
+          const forgeDataA = forgeMetaMap[tokenA];
+          const forgeDataB = forgeMetaMap[tokenB];
 
-            forgeDataA = genericTransformer(forgeDataA).data.value
-            console.log("forgeDataA", forgeDataA)
-          } catch(err: any) {}
+          assetMetaMap.set(tokenA, {
+            hash: tokenA,
+            symbol: symbolA,
+            name: dataA.name,
+            balance: '0',
+            price: 0,
+            isForge: !!forgeDataA,
+            logo: forgeDataA?.[4]?.value,
+            decimals: dataA.decimals,
+          });
 
-          try {
-            forgeDataB = await getContractData({
-              contract: factoryContract,
-              key: vmParam.hash(tokenB),
-            });
-
-            forgeDataB = genericTransformer(forgeDataB).data.value
-            console.log("forgeDataB", forgeDataB)
-          } catch(err: any) {}
-
-          // Add asset A
-          if (!assetMetaMap.has(tokenA)) {
-            assetMetaMap.set(tokenA, {
-              hash: tokenA,
-              symbol: symbolA,
-              name: dataA.name,
-              balance: '0',
-              price: 0,
-              isForge: forgeDataA,
-              logo: forgeDataA && forgeDataA[4]?.value,
-              decimals: dataA.decimals,
-            });
-          }
-
-          // Add asset B
-          if (!assetMetaMap.has(tokenB)) {
-            assetMetaMap.set(tokenB, {
-              hash: tokenB,
-              symbol: symbolB,
-              name: dataB.name,
-              balance: '0',
-              price: 0,
-              isForge: forgeDataB,
-              logo: forgeDataB && forgeDataB[4]?.value,
-              decimals: dataB.decimals,
-            });
-          }
+          assetMetaMap.set(tokenB, {
+            hash: tokenB,
+            symbol: symbolB,
+            name: dataB.name,
+            balance: '0',
+            price: 0,
+            isForge: !!forgeDataB,
+            logo: forgeDataB?.[4]?.value,
+            decimals: dataB.decimals,
+          });
 
           let totalA = lpMap[tokenA];
           let totalB = lpMap[tokenB];

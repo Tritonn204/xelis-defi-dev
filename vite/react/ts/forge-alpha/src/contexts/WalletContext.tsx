@@ -4,7 +4,8 @@ import XSWD from '@xelis/sdk/xswd/websocket'
 import { type ApplicationData } from '@xelis/sdk/xswd/types'
 
 import * as types from '@xelis/sdk/wallet/types'
-import { NATIVE_ASSET_HASH } from './NodeContext'
+import { NATIVE_ASSET_HASH, useNode } from './NodeContext'
+import { getForgeMetaForAssets } from '@/utils/getForgeMeta'
 
 interface WalletState {
   isConnected: boolean
@@ -101,6 +102,25 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(walletReducer, initialState)
   const xswdRef = useRef<XSWD | null>(null)
   const eventCallbacksRef = useRef<Map<string, (data: any) => void>>(new Map())
+
+  const {
+    currentNetwork,
+    currentNode,
+    customNetworks,
+    getContractData
+  } = useNode()
+
+  const getFactoryContract = () => {
+    if (currentNetwork === 'custom' && currentNode) {
+      const networkConfig = Array.from(customNetworks.values())
+        .find(network => network.name === currentNode.name)
+      
+      return networkConfig?.contractAddresses?.factory
+    }
+    return undefined
+  }
+
+  const factoryContract = getFactoryContract()
 
   const generateSessionAppId = () => {
     const prefix = '666f726765' // "forge" in hex (10 chars)
@@ -211,14 +231,47 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const getAssets = async () => {
-    if (!xswdRef.current || !state.isConnected) return
+    if (!xswdRef.current || !state.isConnected) return;
 
     try {
-      return await xswdRef.current.wallet.getAssets()
+      const rawAssets = await xswdRef.current.wallet.getAssets() as any;
+      let assetMap: Map<string, types.Asset> = new Map<string, types.Asset>()
+      const assetHashes = rawAssets.map((assetData: any) => {
+        const hash = assetData[0]
+        assetMap.set(hash, assetData[1])
+        return assetData[0]
+      });
+      
+      const factoryContract = getFactoryContract();
+      let forgeMetaMap: Record<string, any> = {};
+
+      if (factoryContract && getContractData) {
+        forgeMetaMap = await getForgeMetaForAssets(factoryContract, assetHashes, getContractData);
+      }
+
+      console.log(forgeMetaMap)
+
+      const enrichedAssets: { [key: string]: types.Asset & { isForge?: boolean; mintable?: boolean, logo?: string } } = {};
+
+      for (const hash of assetHashes) {
+        const asset = assetMap.get(hash)!;
+        const meta = forgeMetaMap[hash];
+
+        console.log("META:", meta)
+
+        enrichedAssets[hash] = {
+          ...asset,
+          isForge: meta,
+          mintable: meta?.[2]?.value,
+          logo: meta?.[4]?.value,
+        };
+      }
+
+      return enrichedAssets;
     } catch (error) {
-      console.error('Error fetching assets:', error)
+      console.error('Error fetching enriched assets:', error);
     }
-  }
+  };
 
   const getBalance = async (assetHash?: string) => {
     if (!xswdRef.current || !state.isConnected) return '0'

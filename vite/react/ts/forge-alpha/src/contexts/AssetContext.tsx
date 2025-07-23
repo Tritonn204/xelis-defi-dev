@@ -8,6 +8,7 @@ export interface Asset {
   balance: string
   price: number
   isForge: boolean
+  mintable: boolean
   logo: string | undefined
   hash: string
   decimals: number
@@ -172,40 +173,13 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       const assetData = await getAssets() as Record<string, any>
-      const assets: Record<string, Asset> = {}
-      
-      await Promise.all(
-        assetData.map(async (assetEntry: any) => {
-          const [hash, data] = assetEntry
-          
-          try {
-            const balanceResult = await getBalance(hash)
-            const balance = balanceResult?.split(' ')[0] || '0'
-            
-            assets[hash] = {
-              hash,
-              symbol: data.ticker,
-              name: data.name,
-              balance,
-              price: 0,
-              isForge: false,
-              logo: undefined,
-              decimals: data.decimals
-            }
+      const assets: Record<string, Asset> = assetData
 
-            if (hash === NATIVE_ASSET_HASH) {
-              assets[hash].price = 1.79
-              assets[hash].logo = '/assets/xel-logo.png'
-            }
-          } catch (err) {
-            console.error(`Error loading asset ${data.ticker}:`, err)
-          }
-        })
-      )
+      assets[NATIVE_ASSET_HASH].logo = '/assets/xel-logo.png';
+      console.log("ASSETS", assets)
       
       dispatch({ type: 'SET_ASSETS', payload: assets })
       
-      // Set default selected assets if none are selected
       const assetKeys = Object.keys(assets)
       if (!state.selectedAssets.from && assetKeys.length > 0) {
         dispatch({ 
@@ -222,7 +196,6 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
           })
         }
       }
-      
     } catch (error: any) {
       console.error('Error loading assets:', error)
       dispatch({ 

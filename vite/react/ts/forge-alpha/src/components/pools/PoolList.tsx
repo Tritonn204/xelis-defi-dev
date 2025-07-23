@@ -146,68 +146,70 @@ export const PoolList = ({
       </div>
 
       {/* Scrollable Pool List */}
-      <div className="overflow-y-auto h-[55vh] space-y-1">
-        {filteredAndSortedPools.length === 0 ? (
-          <div className="text-center py-6 text-gray-400">
-            No matching pools found
-          </div>
-        ) : (
-          filteredAndSortedPools.map(([key, pool]) => {
-            const isExpanded = expandedPools.has(key);
-            const TVL = poolTVLs.get(key) ?? 0;
+      <div className="relative h-[55vh]">
+        <div className="overflow-y-auto h-full space-y-1 mask-fade-out pb-2">
+          {filteredAndSortedPools.length === 0 ? (
+            <div className="text-center py-6 text-gray-400">
+              No matching pools found
+            </div>
+          ) : (
+            filteredAndSortedPools.map(([key, pool]) => {
+              const isExpanded = expandedPools.has(key);
+              const TVL = poolTVLs.get(key) ?? 0;
 
-            return (
-              <div
-                key={key}
-                onClick={() => togglePool(key)}
-                className="bg-black/70 rounded-xl px-2 py-2 border border-white/12 hover:border-white/30 transition-all cursor-pointer overflow-visible"
-              >
-                <div className="relative min-h-14 flex items-center">
-                  <div className="ml-2 z-10 text-left">
-                    <div className="text-white text-[13pt] font-normal flex items-center space-x-1">
-                      <span>{pool.name}</span>
-                      {(TVL === 0 || !TVL) && !pool.hashes.includes(NATIVE_ASSET_HASH) && (
-                        <Tooltip content="Insufficient price data — TVL shown as 0.">
-                          <AlertTriangle className="w-4 h-4 text-yellow-400 ml-1" />
-                        </Tooltip>
-                      )}
+              return (
+                <div
+                  key={key}
+                  onClick={() => togglePool(key)}
+                  className="bg-black/70 relative rounded-xl px-2 py-2 border border-white/12 hover:border-white/30 transition-all cursor-pointer overflow-visible"
+                >
+                  <div className="relative min-h-14 flex items-center">
+                    <div className="ml-2 z-10 text-left">
+                      <div className="text-white text-[13pt] font-normal flex items-center space-x-1">
+                        <span>{pool.name}</span>
+                        {(TVL === 0 || !TVL) && !pool.hashes.includes(NATIVE_ASSET_HASH) && (
+                          <Tooltip position='right' content="Insufficient price data — TVL shown as 0.">
+                            <AlertTriangle className="w-4 h-4 text-yellow-400 ml-1" />
+                          </Tooltip>
+                        )}
+                      </div>
+                      <div className="text-forge-orange/80 text-sm">
+                        TVL: <span className="text-forge-orange font-bold">${formatCompactNumber(TVL)}</span> USD
+                      </div>
                     </div>
-                    <div className="text-forge-orange/80 text-sm">
-                      TVL: <span className="text-forge-orange font-bold">${formatCompactNumber(TVL)}</span> USD
+
+                    <div className="absolute left-1/2 -translate-x-1/2 z-0">
+                      <div className="relative w-fit h-fit">
+                        <div className="-ml-4">
+                          <TokenIcon tokenSymbol={pool.tickers[0]} tokenHash={pool.hashes[0]} tokenName={pool.names[0]} size={39} />
+                        </div>
+                        <div className="-mt-2.5 -mr-4">
+                          <TokenIcon tokenSymbol={pool.tickers[1]} tokenHash={pool.hashes[1]} tokenName={pool.names[1]} size={39} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="ml-auto mr-2 text-right text-forge-orange/80 text-md">
+                      LP Share: <span className={`${isConnected ? 'text-forge-orange' : 'text-white/20'} font-bold text-md`}>
+                        {pool.userShare ?? '--'}%
+                      </span>
                     </div>
                   </div>
 
-                  <div className="absolute left-1/2 -translate-x-1/2 z-0">
-                    <div className="relative w-fit h-fit">
-                      <div className="-ml-4">
-                        <TokenIcon tokenSymbol={pool.tickers[0]} tokenHash={pool.hashes[0]} tokenName={pool.names[0]} size={39} />
-                      </div>
-                      <div className="-mt-2.5 -mr-4">
-                        <TokenIcon tokenSymbol={pool.tickers[1]} tokenHash={pool.hashes[1]} tokenName={pool.names[1]} size={39} />
-                      </div>
+                  <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-40 mt-3 opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="bg-black/50 rounded-md p-2 text-sm text-gray-300 space-y-1">
+                      {pool.locked.map((amount, index) => (
+                        <div key={index}>
+                          {pool.tickers[index]} – {formatCompactNumber(amount)}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-
-                  <div className="ml-auto mr-2 text-right text-forge-orange/80 text-md z-10">
-                    LP Share: <span className={`${isConnected ? 'text-forge-orange' : 'text-white/20'} font-bold text-md`}>
-                      {pool.userShare ?? '--'}%
-                    </span>
                   </div>
                 </div>
-
-                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-40 mt-3 opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="bg-black/50 rounded-md p-2 text-sm text-gray-300 space-y-1">
-                    {pool.locked.map((amount, index) => (
-                      <div key={index}>
-                        {pool.tickers[index]} – {formatCompactNumber(amount)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
     </div>
   );

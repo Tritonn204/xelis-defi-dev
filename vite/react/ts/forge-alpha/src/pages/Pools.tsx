@@ -180,9 +180,9 @@ const Pools = () => {
     // Autofill logic (only if toggle is enabled and prices are valid)
     if (autoFillEnabled && price1 > 0 && price2 > 0) {
       if (tokenField === 'token1Amount') {
-        updatedSelection.token2Amount = (value * price1 / price2).toFixed(tokenSelection.token1Decimals)
+        updatedSelection.token2Amount = (value * price1 / price2).toFixed(tokenSelection.token2Decimals)
       } else if (tokenField === 'token2Amount') {
-        updatedSelection.token1Amount = (value * price2 / price1).toFixed(tokenSelection.token2Decimals)
+        updatedSelection.token1Amount = (value * price2 / price1).toFixed(tokenSelection.token1Decimals)
       }
     }
 

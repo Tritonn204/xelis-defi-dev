@@ -11,6 +11,7 @@ import * as daemonTypes from '@xelis/sdk/daemon/types'
 
 // Contract interfaces
 import * as factory from '@/contracts/factory/contract';
+import { useAssets } from '@/contexts/AssetContext'
 
 // Panel management
 const PANELS = {
@@ -27,6 +28,10 @@ const SCREENS = {
 }
 
 const Tools = () => {
+  const {
+    assets
+  } = useAssets()
+
   const { 
     isConnected, 
     connectWallet, 
@@ -35,7 +40,6 @@ const Tools = () => {
     buildTransaction,
     submitTransaction,
     clearTxCache,
-    getAssets,
   } = useWallet()
   
   const { 
@@ -83,7 +87,6 @@ const Tools = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [txHash, setTxHash] = useState('')
-  const [availableAssets, setAvailableAssets] = useState<Record<string, any>[]>([])
 
   // Get Factory contract address from custom network config
   const getFactoryContract = () => {
@@ -96,29 +99,7 @@ const Tools = () => {
     return undefined
   }
 
-  const factoryAddress = getFactoryContract()
-
-  // Load assets when wallet is connected (for mint form)
-  useEffect(() => {
-    if (isConnected && address && activePanel === PANELS.MINT_TOKENS) {
-      loadWalletAssets()
-    }
-  }, [isConnected, address, activePanel])
-
-  const loadWalletAssets = async () => {
-    try {
-      const assetData = (await getAssets()) as Record<string, any>
-      const assets = assetData.map(([hash, data]) => ({
-        hash,
-        name: data.name,
-        ticker: data.ticker,
-        decimals: data.decimals
-      }))
-      setAvailableAssets(assets)
-    } catch (error) {
-      console.error('Error loading assets:', error)
-    }
-  }
+  const factoryContract = getFactoryContract()
 
   // Navigation helpers
   const goToScreen = (screen: string) => {
@@ -194,12 +175,12 @@ const Tools = () => {
     setError('')
 
     try {
-      if (!factoryAddress) {
+      if (!factoryContract) {
         throw new Error('Factory contract address not found')
       }
 
       const txData = factory.entries.createTokenTransaction({
-        contract: factoryAddress,
+        contract: factoryContract,
         name: createTokenForm.name,
         ticker: createTokenForm.ticker,
         decimals: createTokenForm.decimals,
@@ -212,7 +193,7 @@ const Tools = () => {
       const txBuilder = await buildTransaction(txData)
       console.log("Create Token TX", txBuilder)
 
-      awaitContractInvocation(txBuilder.hash, factoryAddress, handleTransactionResult)
+      awaitContractInvocation(txBuilder.hash, factoryContract, handleTransactionResult)
       await submitTransaction(txBuilder)
 
     } catch (err: any) {
@@ -247,11 +228,11 @@ const Tools = () => {
     setError('')
 
     try {
-      if (!factoryAddress) {
+      if (!factoryContract) {
         throw new Error('Factory contract address not found')
       }
 
-      const selectedAsset = availableAssets.find(asset => asset.hash === mintForm.assetHash)
+      const selectedAsset = Object.values(assets).find(asset => asset.hash === mintForm.assetHash)
       if (!selectedAsset) {
         throw new Error('Selected asset not found')
       }
@@ -259,7 +240,7 @@ const Tools = () => {
       const adjustedAmount = parseFloat(mintForm.mintAmount) * Math.pow(10, selectedAsset.decimals)
 
       const txData = factory.entries.createMintTokensTransaction({
-        contract: factoryAddress,
+        contract: factoryContract,
         assetHash: mintForm.assetHash,
         mintAmount: adjustedAmount
       })
@@ -267,7 +248,7 @@ const Tools = () => {
       const txBuilder = await buildTransaction(txData)
       console.log("Mint Tokens TX", txBuilder)
 
-      awaitContractInvocation(txBuilder.hash, factoryAddress, handleTransactionResult)
+      awaitContractInvocation(txBuilder.hash, factoryContract, handleTransactionResult)
       await submitTransaction(txBuilder)
 
     } catch (err: any) {
@@ -428,13 +409,13 @@ const Tools = () => {
 
             <Button
               onClick={() => goToScreen(SCREENS.CONFIRM)}
-              disabled={!createTokenForm.name || !createTokenForm.ticker || !createTokenForm.supply || !factoryAddress}
+              disabled={!createTokenForm.name || !createTokenForm.ticker || !createTokenForm.supply || !factoryContract}
               className="w-full bg-forge-orange hover:bg-forge-orange/90 disabled:bg-gray-600 text-white font-light text-[1.5rem] py-1 px-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:ring-2 ring-white hover:scale-[1.015] active:scale-[0.98]"
             >
               Create Token
             </Button>
 
-            {!factoryAddress && isConnected && (
+            {!factoryContract && isConnected && (
               <div className="text-red-500 text-sm text-center">
                 Factory contract not found for this network
               </div>
@@ -488,11 +469,13 @@ const Tools = () => {
                 className="w-full bg-black/80 text-white p-3 rounded-lg border border-white/20 focus:border-forge-orange focus:outline-none"
               >
                 <option value="">Select a token to mint</option>
-                {availableAssets.map(asset => (
-                  <option key={asset.hash} value={asset.hash}>
-                    {asset.ticker} - {asset.name}
-                  </option>
-                ))}
+                {Object.values(assets)
+                  .filter(asset => asset.isForge)
+                  .map(asset => (
+                    <option key={asset.hash} value={asset.hash}>
+                      {asset.ticker} - {asset.name}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -511,13 +494,13 @@ const Tools = () => {
 
             <Button
               onClick={() => goToScreen(SCREENS.CONFIRM)}
-              disabled={!mintForm.assetHash || !mintForm.mintAmount || !factoryAddress}
+              disabled={!mintForm.assetHash || !mintForm.mintAmount || !factoryContract}
               className="w-full bg-forge-orange hover:bg-forge-orange/90 disabled:bg-gray-600 text-white font-light text-[1.5rem] py-1 px-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:ring-2 ring-white hover:scale-[1.015] active:scale-[0.98]"
             >
               Manage Tokens
             </Button>
 
-            {!factoryAddress && isConnected && (
+            {!factoryContract && isConnected && (
               <div className="text-red-500 text-sm text-center">
                 Factory contract not found for this network
               </div>
@@ -589,7 +572,7 @@ const Tools = () => {
               <div className="flex justify-between">
                 <span className="text-gray-300">Token:</span>
                 <span className="text-white">
-                  {availableAssets.find(a => a.hash === mintForm.assetHash)?.ticker}
+                  {Object.values(assets).find(a => a.hash === mintForm.assetHash)?.ticker}
                 </span>
               </div>
               <div className="flex justify-between">
