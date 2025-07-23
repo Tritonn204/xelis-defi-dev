@@ -146,7 +146,7 @@ export const PoolList = ({
       </div>
 
       {/* Scrollable Pool List */}
-      <div className="overflow-y-auto h-[55vh] pr-1 space-y-1">
+      <div className="overflow-y-auto h-[55vh] space-y-1">
         {filteredAndSortedPools.length === 0 ? (
           <div className="text-center py-6 text-gray-400">
             No matching pools found
