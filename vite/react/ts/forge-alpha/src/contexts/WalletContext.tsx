@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useReducer, useEffect, useRef, type ReactNode, useState } from 'react'
 import { LOCAL_XSWD_WS } from '@xelis/sdk/config'
 import XSWD from '@xelis/sdk/xswd/websocket'
 import { type ApplicationData } from '@xelis/sdk/xswd/types'
@@ -6,6 +6,8 @@ import { type ApplicationData } from '@xelis/sdk/xswd/types'
 import * as types from '@xelis/sdk/wallet/types'
 import { NATIVE_ASSET_HASH, useNode } from './NodeContext'
 import { getForgeMetaForAssets } from '@/utils/getForgeMeta'
+import { Asset } from './AssetContext'
+import { responseTransformers } from '@/utils/types'
 
 interface WalletState {
   isConnected: boolean
@@ -30,6 +32,11 @@ interface WalletContextType extends WalletState {
   submitTransaction: (txData: object) => Promise<object>
   subscribeToWalletEvent: (event: types.RPCEvent, callback: (data: any) => void) => void
   unsubscribeFromWalletEvent: (event: types.RPCEvent) => void
+  trackAsset: (params: {asset: string}) => Promise<any>
+  untrackAsset: (params: {asset: string}) => Promise<any>
+  isAssetTracked: (params: {asset: string}) => Promise<any>
+  //
+  ownedAssets: Map<string, types.Asset> | undefined;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined)
@@ -99,6 +106,7 @@ const walletReducer = (state: WalletState, action: WalletAction): WalletState =>
 }
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
+  const [ownedAssets, setOwnedAssets] = useState<Map<string, types.Asset> | undefined>(new Map());
   const [state, dispatch] = useReducer(walletReducer, initialState)
   const xswdRef = useRef<XSWD | null>(null)
   const eventCallbacksRef = useRef<Map<string, (data: any) => void>>(new Map())
@@ -119,8 +127,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
     return undefined
   }
-
-  const factoryContract = getFactoryContract()
 
   const generateSessionAppId = () => {
     const prefix = '666f726765' // "forge" in hex (10 chars)
@@ -164,7 +170,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           "get_address", 
           "get_balance", 
           "get_asset", 
-          "get_assets", 
+          "get_assets",
+          "track_asset",
+          "untrack_asset",
+          "is_asset_tracked",
           "network_info",
           "clear_tx_cache",
         ]
@@ -257,8 +266,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         const asset = assetMap.get(hash)!;
         const meta = forgeMetaMap[hash];
 
-        console.log("META:", meta)
-
         enrichedAssets[hash] = {
           ...asset,
           isForge: meta,
@@ -267,6 +274,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         };
       }
 
+      setOwnedAssets(new Map(assetMap))
+      console.log("new owned array", ownedAssets, "original", assetMap)
       return enrichedAssets;
     } catch (error) {
       console.error('Error fetching enriched assets:', error);
@@ -384,6 +393,27 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
+  const trackAsset = async (params: {asset: string}) => {
+    const res: any = await xswdRef.current!.wallet.dataCall("track_asset", params)
+    if (res === true) {
+      await getAssets()
+    }
+    return res
+  }
+
+  const untrackAsset = async (params: {asset: string}) => {
+    const res: any = await xswdRef.current!.wallet.dataCall("untrack_asset", params)
+    if (res === true) {
+      await getAssets()
+    }
+    return res
+  }
+
+  const isAssetTracked = async (params: {asset: string}) => {
+    const res: any = await xswdRef.current!.wallet.dataCall("is_asset_tracked", params)
+    return res
+  }
+
   useEffect(() => {
     let heartbeatInterval: NodeJS.Timeout;
 
@@ -451,7 +481,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       buildTransaction,
       submitTransaction,
       subscribeToWalletEvent,
-      unsubscribeFromWalletEvent
+      unsubscribeFromWalletEvent,
+      ownedAssets,
+      trackAsset,
+      untrackAsset,
+      isAssetTracked
     }}>
       {children}
     </WalletContext.Provider>

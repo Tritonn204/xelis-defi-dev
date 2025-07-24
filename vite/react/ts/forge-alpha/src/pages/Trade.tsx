@@ -323,7 +323,7 @@ const Trade = () => {
                   label="You Send"
                   amount={swapAmounts.from}
                   onChange={(value: string) => handleAmountChange('from', value)}
-                  tokenSymbol={fromToken?.symbol || 'Select'}
+                  tokenSymbol={fromToken?.ticker || 'Select'}
                   tokenHash={fromToken?.hash}
                   tokenName={fromToken?.name || ''}
                   price={fromToken?.price}
@@ -341,7 +341,7 @@ const Trade = () => {
                   label="You Receive"
                   amount={swapAmounts.to}
                   onChange={(value: string) => handleAmountChange('to', value)}
-                  tokenSymbol={toToken?.symbol || 'Select'}
+                  tokenSymbol={toToken?.ticker || 'Select'}
                   tokenName={toToken?.name || ''}
                   tokenHash={toToken?.hash}
                   price={toToken?.price}
@@ -463,7 +463,7 @@ const Trade = () => {
             {/* Token Stats */}
             <div className="grid grid-cols-2 gap-2">
               <TokenStats 
-                symbol={fromToken?.symbol || "—"}
+                symbol={fromToken?.ticker || "—"}
                 tokenHash={fromToken?.hash}
                 tokenName={fromToken?.name}
                 price="1.790"
@@ -471,7 +471,7 @@ const Trade = () => {
                 color="bg-orange-500"
               />
               <TokenStats 
-                symbol={toToken?.symbol || "—"}
+                symbol={toToken?.ticker || "—"}
                 tokenHash={toToken?.hash}
                 tokenName={toToken?.name}
                 price="1.790"

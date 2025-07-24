@@ -9,12 +9,15 @@ import { getForgeMetaForAssets } from '@/utils/getForgeMeta';
 
 export interface PoolData {
   name: string
+  lpAsset: string,
   tickers: [string, string]
   names: [string, string]
   hashes: [string, string]
   locked: [string, string]
   userShare: string | undefined
   totalLpSupply: BigInt
+  userPool: boolean,
+  userTracked: boolean
 }
 
 const XEL_PRICE_URL = 'https://api.coinpaprika.com/v1/tickers/xel-xelis?quotes=USD,EUR,BTC'
@@ -49,7 +52,8 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const { 
     isConnected,
-    getRawBalance 
+    getRawBalance,
+    ownedAssets,
   } = useWallet();
 
   // Get router contract address
@@ -144,22 +148,24 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           assetMetaMap.set(tokenA, {
             hash: tokenA,
-            symbol: symbolA,
+            ticker: symbolA,
             name: dataA.name,
             balance: '0',
             price: 0,
             isForge: !!forgeDataA,
+            mintable: false, // not relevant
             logo: forgeDataA?.[4]?.value,
             decimals: dataA.decimals,
           });
 
           assetMetaMap.set(tokenB, {
             hash: tokenB,
-            symbol: symbolB,
+            ticker: symbolB,
             name: dataB.name,
             balance: '0',
             price: 0,
             isForge: !!forgeDataB,
+            mintable: false,  // not relevant
             logo: forgeDataB?.[4]?.value,
             decimals: dataB.decimals,
           });
@@ -172,11 +178,12 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const lpTotal: BigInt = (await getAssetSupply({ asset: id })).data;
           let userShare: string | undefined = undefined;
+          let userLp: BigInt | undefined = undefined;
 
           if (isConnected) {
             try {
-              const myLp: BigInt = BigInt(await getRawBalance(id));
-              userShare = new Decimal(myLp.toString()).div(lpTotal.toString()).mul(100).toFixed(3).toString();
+              userLp = BigInt(await getRawBalance(id));
+              userShare = new Decimal(userLp.toString()).div(lpTotal.toString()).mul(100).toFixed(3).toString();
             } catch (err) {
               console.error('Error getting user LP balance:', err);
             }
@@ -184,13 +191,22 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const poolData: PoolData = {
             name: `${symbolA} - ${symbolB}`,
+            lpAsset: id,
             tickers: [symbolA, symbolB],
             names: [dataA.name, dataB.name],
             hashes: [tokenA, tokenB],
             locked: [totalA.toString(), totalB.toString()],
             userShare,
+            userPool: !!ownedAssets?.get(id),
+            userTracked: !!userLp,
             totalLpSupply: lpTotal
           };
+
+          if (poolData.userShare) {
+            console.log(`User owns ${poolData.name}, userTracked = ${poolData.userTracked}`)
+          } else {
+            console.log(`User does NOT own ${poolData.name}`)
+          }
 
           pools.set(poolKey, poolData);
         }
@@ -209,7 +225,7 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Load pools when router contract is available or connection status changes
   useEffect(() => {
     loadPools();
-  }, [routerContract, isConnected, currentNetwork, currentNode]);
+  }, [routerContract, isConnected, currentNetwork, currentNode, ownedAssets]);
 
   const refreshPools = () => {
     loadPools();

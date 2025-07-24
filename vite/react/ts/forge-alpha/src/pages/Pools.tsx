@@ -27,11 +27,13 @@ import * as walletTypes from '@xelis/sdk/wallet/types'
 import Decimal from 'decimal.js'
 import { useAssets } from '@/contexts/AssetContext';
 import { usePrices } from '@/contexts/PriceContext';
+import RemoveLiquidityScreen from '@/components/pools/RemoveLiquidityScreen';
 
 // Screen state management
 const SCREENS = {
   LIST: 'list',
-  SELECT_TOKENS: 'select_tokens',
+  SELECT_TOKENS_ADD: 'select_tokens_add',
+  SELECT_TOKENS_REMOVE: 'select_tokens_remove',
   ADD_LIQUIDITY: 'add_liquidity',
   CONFIRM: 'confirm',
   SUCCESS: 'success',
@@ -69,12 +71,18 @@ const Pools = () => {
   } = usePrices()
   // Screen state
   const [currentScreen, setCurrentScreen] = useState(SCREENS.LIST)
+  const [currentFlow, setCurrentFlow] = useState<'add' | 'remove'>('add')
   const [autoFillEnabled, setAutoFillEnabled] = useState(true);
   const currentScreenRef = useRef(currentScreen)
+  const currentFlowRef = useRef(currentFlow)
 
   useEffect(() => {
     currentScreenRef.current = currentScreen
   }, [currentScreen])
+
+  useEffect(() => {
+    currentFlowRef.current = currentFlow
+  }, [currentFlow])
   // Asset state
   const { 
     activePools, 
@@ -102,7 +110,7 @@ const Pools = () => {
   }
 
   const routerContract = getrouterContract()
-  const availableAssets = Object.values(assets)
+  const availableAssets = assets
 
   // Mount ping
   const [refresh, setRefresh] = useState(false)
@@ -143,16 +151,31 @@ const Pools = () => {
       connectWallet()
       return
     }
-    goToScreen(SCREENS.SELECT_TOKENS)
+    setCurrentFlow('add')
+    goToScreen(SCREENS.SELECT_TOKENS_ADD)
+  }
+
+  // Start remove liquidity flow
+  const handleRemoveLiquidity = () => {
+    if (!isConnected) {
+      connectWallet()
+      return
+    }
+    setCurrentFlow('remove')
+    goToScreen(SCREENS.SELECT_TOKENS_REMOVE)
   }
 
   // Handle token selection
   const handleSelectTokens = (token1Hash: string, token2Hash: string) => {
     const token1 = assets[token1Hash]
     const token2 = assets[token2Hash]
-    
+
+    console.log(assets)
+    console.log(token1Hash, token2Hash)
+    console.log(token1, token2)
+
     if (!token1 || !token2) {
-      setError('Selected tokens not found')
+      console.error('Selected tokens not found')
       return
     }
     
@@ -161,8 +184,8 @@ const Pools = () => {
       token2Hash,
       token1Amount: '',
       token2Amount: '',
-      token1Symbol: token1.symbol, // Changed from ticker to symbol
-      token2Symbol: token2.symbol, // Changed from ticker to symbol
+      token1Symbol: token1.ticker,
+      token2Symbol: token2.ticker,
       token1Decimals: token1.decimals,
       token2Decimals: token2.decimals
     })
@@ -217,7 +240,7 @@ const Pools = () => {
       )
 
       const txData = router.entries.createAddLiquidityTransaction({
-        routerContract,
+        contract: routerContract,
         token1Hash: tokenSelection.token1Hash,
         token2Hash: tokenSelection.token2Hash,
         token1Amount,
@@ -265,6 +288,68 @@ const Pools = () => {
     }
   }
 
+  // Submit liquidity removal
+  const submitRemoveLiquidity = async (lp: string, amount: number) => {
+    setIsSubmitting(true)
+    setError('')
+
+    try {
+      if (!routerContract) {
+        throw new Error('Missing router address or token selection')
+      }
+
+      console.log(tokenSelection)
+
+      const txData = router.entries.createRemoveLiquidityTransaction({
+        contract: routerContract,
+        liquidityTokenHash: lp,
+        liquidityAmount: amount
+      })
+
+      const txBuilder: any = await buildTransaction(txData)
+
+      console.log("Remove LP TX", txBuilder)
+
+      awaitContractInvocation(txBuilder.hash, routerContract, async (status, hash) => {
+        console.log(`Tx ${hash} completed with status: ${status}`)
+        setTxHash(hash)
+        setRefresh(!refresh)
+        let screenCheck
+        if (currentFlowRef.current == 'add') screenCheck = SCREENS.CONFIRM
+        else if (currentFlowRef.current == 'remove') screenCheck = SCREENS.SELECT_TOKENS_REMOVE
+
+        if (status === 'executed') {
+          if (currentScreenRef.current == screenCheck) {
+            goToScreen(SCREENS.SUCCESS)            
+          }
+        } else {
+          setError(`Transaction ${status}`)
+          if (currentScreenRef.current == screenCheck) {
+            goToScreen(SCREENS.ERROR)            
+          }
+        }
+
+        setIsSubmitting(false)
+      })
+
+      await submitTransaction(txBuilder)
+
+    } catch (err: any) {
+      let cacheErrorMessage = ''
+
+      try {
+        await clearTxCache()
+      } catch (cacheErr: any) {
+        cacheErrorMessage = `, (also failed to clear tx cache: ${cacheErr.message || 'unknown error'})`
+        console.error('Failed to clear TX cache:', cacheErr)
+      }
+
+      setError(`Failed to remove liquidity: ${err.message || err}` + cacheErrorMessage)
+      setIsSubmitting(false)
+      goToScreen(SCREENS.ERROR)
+    }
+  }
+
   // Get formatted balance for a token
   const getFormattedBalance = (tokenHash: string) => {
     if (!tokenHash || !assets[tokenHash]) return '0.0'
@@ -282,6 +367,7 @@ const Pools = () => {
         return (
           <PoolListScreen
             onAddLiquidity={handleAddLiquidity}
+            onRemoveLiquidity={handleRemoveLiquidity}
             pools={activePools}
             loading={loadingPools}
             error={poolsError || undefined}
@@ -291,23 +377,37 @@ const Pools = () => {
           />
         )
 
-      case SCREENS.SELECT_TOKENS:
+      case SCREENS.SELECT_TOKENS_ADD:
         return (
           <SelectTokensScreen
             goBack={() => goToScreen(SCREENS.LIST)}
-            onContinue={(token1, token2) => handleSelectTokens(token1, token2)}
+            onContinue={(token1, token2) => {console.log("parent click"); handleSelectTokens(token1, token2)}}
             tokenSelection={tokenSelection}
             setTokenSelection={(partial) => setTokenSelection(prev => ({ ...prev, ...partial }))}
-            loadingAssets={loadingAssets}
+            loadingAssets={loadingAssets || loadingPools}
             availableAssets={availableAssets}
             assets={assets}
+          />
+        )
+
+      case SCREENS.SELECT_TOKENS_REMOVE:
+        return (
+          <RemoveLiquidityScreen
+            goBack={() => goToScreen(SCREENS.LIST)}
+            pools={activePools}
+            loading={loadingPools}
+            isSubmitting={isSubmitting}
+            error={error}
+            onWithdraw={(_, pool, amount) => {
+              submitRemoveLiquidity(pool.lpAsset, amount)
+            }}
           />
         )
 
       case SCREENS.ADD_LIQUIDITY:
         return (
           <AddLiquidityScreen
-            goBack={() => goToScreen(SCREENS.SELECT_TOKENS)}
+            goBack={() => goToScreen(SCREENS.SELECT_TOKENS_ADD)}
             goNext={() => goToScreen(SCREENS.CONFIRM)}
             tokenSelection={tokenSelection}
             handleAmountChange={handleAmountChange}
@@ -334,7 +434,7 @@ const Pools = () => {
         return (
           <ResultScreen
             type="success"
-            title="Liquidity Added!"
+            title={currentFlowRef.current === 'add' ? "Liquidity Added!" : "Liquidity Withdrawn."}
             message="Your transaction was successful."
             txHash={txHash}
             onPrimary={() => goToScreen(SCREENS.LIST)}
@@ -346,9 +446,11 @@ const Pools = () => {
         return (
           <ResultScreen
             type="error"
-            title="Failed to Add Liquidity"
+            title={currentFlowRef.current === 'add' ? 'Failed to Add Liquidity' : 'Failed to Remove Liquidity'}
             error={error}
-            onPrimary={() => goToScreen(SCREENS.ADD_LIQUIDITY)}
+            onPrimary={() =>
+              goToScreen(currentFlowRef.current === 'add' ? SCREENS.ADD_LIQUIDITY : SCREENS.SELECT_TOKENS_REMOVE)
+            }
             primaryLabel="Try Again"
             onSecondary={() => goToScreen(SCREENS.LIST)}
             secondaryLabel="Back to Pools"

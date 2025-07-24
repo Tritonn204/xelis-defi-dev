@@ -10,17 +10,29 @@ import Decimal from 'decimal.js';
 import Button from '../ui/Button';
 import Tooltip from '../ui/Tooltip';
 import { useViewState } from '@/contexts/ViewStateContext';
+import DisclaimerModal, { disclaimerKeys } from '@/components/modal/DisclaimerModal'
+import { useAssets } from '@/contexts/AssetContext';
 
 interface PoolListProps {
   pools?: Map<string, PoolData>;
+  onPoolClick?: (poolKey: string, pool: PoolData) => void;
+  filterMode?: 'all' | 'only-xel' | 'user' | 'lt-1k';
+  tvlRange?: { min?: number; max?: number };
+  scrollClass?: string
 }
 
 const d10 = new Decimal(10);
 
 export const PoolList = ({
-  pools = new Map<string, PoolData>()
+  pools = new Map<string, PoolData>(),
+  onPoolClick,
+  filterMode,
+  tvlRange,
+  scrollClass = 'h-[55vh]'
 }: PoolListProps) => {
-  const { isConnected } = useWallet();
+  const { isConnected, address, trackAsset, ownedAssets } = useWallet();
+  const { refreshPools }= usePools()
+  const { refreshAssets, assets } = useAssets()
   const { poolTVLs } = usePrices();
   const poolEntries = Array.from(pools.entries());
 
@@ -29,6 +41,7 @@ export const PoolList = ({
   const state = getState(sortKey);
 
   const [expandedPools, setExpandedPools] = useState<Set<string>>(new Set());
+  const [showDisclaimerFor, setShowDisclaimerFor] = useState<string | null>(null);
 
   // Initialize state defaults
   const searchTerm = state.searchTerm ?? '';
@@ -42,6 +55,10 @@ export const PoolList = ({
       next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
+  };
+
+  const handleTrackNow = async (key: string, pool: PoolData) => {
+    await trackAsset({asset: pool.lpAsset})
   };
 
   const handleSearchChange = (val: string) => {
@@ -60,8 +77,26 @@ export const PoolList = ({
     setState(sortKey, { sortAsc: val });
   };
 
+  const matchesFilterMode = (key: string, pool: PoolData): boolean => {
+    switch (filterMode) {
+      case 'only-xel':
+        return pool.hashes.includes(NATIVE_ASSET_HASH);
+      case 'user':
+        return pool.userPool && ((!!pool.userShare && parseFloat(pool.userShare) > 0) || !pool.userTracked);
+      default:
+        break;
+    }
+    const tvl = poolTVLs.get(key) ?? 0;
+    if (tvlRange) {
+      if (typeof tvlRange.min === 'number' && tvl < tvlRange.min!) return false;
+      if (typeof tvlRange.max === 'number' && tvl > tvlRange.max!) return false;
+    }
+    return true;
+  };
+
   const filteredAndSortedPools = useMemo(() => {
     return poolEntries
+      .filter(([key, pool]) => matchesFilterMode(key, pool))
       .filter(([_, pool]) => {
         const q = searchTerm.toLowerCase();
         return (
@@ -81,7 +116,7 @@ export const PoolList = ({
         const bVal = map.get(b[0]) as number ?? 0;
         return sortAsc ? aVal - bVal : bVal - aVal;
       });
-  }, [poolEntries, poolTVLs, searchTerm, showNonXel, sortBy, sortAsc]);
+  }, [poolEntries, poolTVLs, searchTerm, showNonXel, sortBy, sortAsc, assets]);
 
   if (poolEntries.length === 0) {
     return (
@@ -146,7 +181,7 @@ export const PoolList = ({
       </div>
 
       {/* Scrollable Pool List */}
-      <div className="relative h-[55vh]">
+      <div className={`relative ${scrollClass}`}>
         <div className="overflow-y-auto h-full space-y-1 mask-fade-out pb-2">
           {filteredAndSortedPools.length === 0 ? (
             <div className="text-center py-6 text-gray-400">
@@ -157,10 +192,18 @@ export const PoolList = ({
               const isExpanded = expandedPools.has(key);
               const TVL = poolTVLs.get(key) ?? 0;
 
+              const isUntrackedUserPool = pool.userPool && !pool.userTracked;
+
               return (
                 <div
                   key={key}
-                  onClick={() => togglePool(key)}
+                  onClick={() => {
+                    if (onPoolClick) {
+                      onPoolClick(key, pool);
+                    } else {
+                      togglePool(key);
+                    }
+                  }}
                   className="bg-black/70 relative rounded-xl px-2 py-2 border border-white/12 hover:border-white/30 transition-all cursor-pointer overflow-visible"
                 >
                   <div className="relative min-h-14 flex items-center">
@@ -168,7 +211,7 @@ export const PoolList = ({
                       <div className="text-white text-[13pt] font-normal flex items-center space-x-1">
                         <span>{pool.name}</span>
                         {(TVL === 0 || !TVL) && !pool.hashes.includes(NATIVE_ASSET_HASH) && (
-                          <Tooltip position='right' content="Insufficient price data — TVL shown as 0.">
+                          <Tooltip position='top' content="Insufficient price data — TVL shown as 0">
                             <AlertTriangle className="w-4 h-4 text-yellow-400 ml-1" />
                           </Tooltip>
                         )}
@@ -189,10 +232,29 @@ export const PoolList = ({
                       </div>
                     </div>
 
-                    <div className="ml-auto mr-2 text-right text-forge-orange/80 text-md">
-                      LP Share: <span className={`${isConnected ? 'text-forge-orange' : 'text-white/20'} font-bold text-md`}>
-                        {pool.userShare ?? '--'}%
-                      </span>
+                    <div className="ml-auto mr-1.5 text-right text-forge-orange/80 text-md">
+                      {isUntrackedUserPool ? (
+                        <Tooltip
+                          position='left' delay={1000} content="An untracked LP balance was detected"
+                        >
+                          <Button
+                            onClick={(e: any) => {
+                              e.stopPropagation(); // prevent card toggle
+                              setShowDisclaimerFor(key);
+                            }}
+                            className="bg-transparent transition-all duration-200 hover:bg-black/50 text-forge-orange text-regular px-2 py-1 rounded-lg"
+                          >
+                            Track LP Balance
+                          </Button>
+                        </Tooltip>
+                      ) : (
+                        <>
+                          LP Share:{' '}
+                          <span className={`${isConnected ? 'text-forge-orange' : 'text-white/20'} font-bold text-md`}>
+                            {pool.userShare ?? '--'}%
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -211,6 +273,20 @@ export const PoolList = ({
           )}
         </div>
       </div>
+      {showDisclaimerFor && pools.has(showDisclaimerFor) && (
+        <DisclaimerModal
+          isOpen={!!showDisclaimerFor}
+          onClose={() => setShowDisclaimerFor(null)}
+          onConfirm={() => {
+            const pool = pools.get(showDisclaimerFor)!;
+            handleTrackNow(showDisclaimerFor, pool);
+            setShowDisclaimerFor(null);
+          }}
+          storageKey={address ? `${address}_${disclaimerKeys.trackAsset}` : undefined}
+          title="Track LP Balance"
+          message="Tracking this pool will allow it to appear in your user-specific views. You can remove tracking later. Proceed?"
+        />
+      )}
     </div>
   );
 };

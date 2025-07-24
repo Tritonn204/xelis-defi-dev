@@ -42,6 +42,8 @@ export const TransactionProvider = ({ children }: { children: ReactNode }) => {
     awaitTx(txHash, async () => {
       const out = await getContractOutputs({ transaction: txHash, contract })
       const exitCode = getExitCodeFromOutputs(out)
+
+      console.log("contract outputs", out)
       const status: TransactionStatus = exitCode === 0 ? 'executed' : 'reverted'
       updateTransaction(txHash, status)
 

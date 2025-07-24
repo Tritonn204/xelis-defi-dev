@@ -3,6 +3,7 @@ import '../../components/ui/num_nospinner.css'
 import { stringToColor } from '../../utils/strings'
 import Button from '../ui/Button'
 import { useAssets } from '@/contexts/AssetContext'
+import TokenIcon from '../ui/TokenIcon'
 
 const LiquidityInput = ({ 
   label = '', 
@@ -15,7 +16,7 @@ const LiquidityInput = ({
 
   const asset = assets[tokenHash]!
   const tokenName = asset.name
-  const tokenSymbol = asset.symbol
+  const tokenSymbol = asset.ticker
   const decimals = asset.decimals
   const balance = asset.balance
   const tokenColor = stringToColor(tokenSymbol + tokenName)
@@ -61,12 +62,7 @@ const LiquidityInput = ({
           
           {/* Right side - Icon and ticker, vertically centered with input */}
           <div className="flex items-center space-x-2 ml-4">
-            <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold"
-              style={{ backgroundColor: tokenColor }}
-            >
-              {firstLetter}
-            </div>
+            <TokenIcon tokenSymbol={tokenSymbol} tokenHash={tokenHash} tokenName={tokenName} size={36} />
             <span 
               className="text-white font-medium text-right"
               style={{ minWidth: `${tickerWidth}ch` }}
@@ -84,14 +80,16 @@ const LiquidityInput = ({
           <div className="flex items-center text-xs text-gray-500 mt-2 pl-1">
             <span>{balance || '0.0'}</span>
               <Button 
-                className="ml-2 px-1 text-xs text-forge-orange hover:text-forge-orange/80 font-medium transition-colors"
+                className="ml-2 px-1 text-xs text-forge-orange transition-all duration-200 rounded-full ring-white/10 hover:text-forge-orange/80 font-medium"
+                focusOnClick={false}
                 onClick={handleHalfClick}
               >
                 HALF
               </Button>
               <Button 
-                className="ml-1 px-1 text-xs text-forge-orange hover:text-forge-orange/80 font-medium transition-colors"
+                className="ml-1 px-1 text-xs text-forge-orange transition-all duration-200 rounded-full ring-forge-orange/10 hover:text-forge-orange/80 font-medium"
                 onClick={handleMaxClick}
+                focusOnClick={false}
               >
                 MAX
               </Button>

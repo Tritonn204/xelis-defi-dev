@@ -3,7 +3,7 @@ import { useWallet } from '@/contexts/WalletContext'
 import { useNode, NATIVE_ASSET_HASH } from '@/contexts/NodeContext'
 
 export interface Asset {
-  symbol: string
+  ticker: string
   name: string
   balance: string
   price: number
@@ -31,8 +31,8 @@ interface AssetState {
 }
 
 interface AssetContextType extends AssetState {
-  setAssetBalance: (symbol: string, balance: string) => void
-  selectAsset: (position: 'from' | 'to', symbol: string) => void
+  setAssetBalance: (ticker: string, balance: string) => void
+  selectAsset: (position: 'from' | 'to', ticker: string) => void
   swapAssets: () => void
   setAmount: (position: 'from' | 'to', amount: string) => void
   setSlippage: (slippage: number) => void
@@ -62,8 +62,8 @@ const initialState: AssetState = {
 
 type AssetAction =
   | { type: 'SET_ASSETS'; payload: Record<string, Asset> }
-  | { type: 'SET_ASSET_BALANCE'; payload: { symbol: string; balance: string } }
-  | { type: 'SELECT_ASSET'; payload: { position: 'from' | 'to'; symbol: string } }
+  | { type: 'SET_ASSET_BALANCE'; payload: { ticker: string; balance: string } }
+  | { type: 'SELECT_ASSET'; payload: { position: 'from' | 'to'; ticker: string } }
   | { type: 'SWAP_ASSETS' }
   | { type: 'SET_AMOUNT'; payload: { position: 'from' | 'to'; amount: string } }
   | { type: 'SET_SLIPPAGE'; payload: number }
@@ -83,8 +83,8 @@ const assetReducer = (state: AssetState, action: AssetAction): AssetState => {
         ...state,
         assets: {
           ...state.assets,
-          [action.payload.symbol]: {
-            ...state.assets[action.payload.symbol],
+          [action.payload.ticker]: {
+            ...state.assets[action.payload.ticker],
             balance: action.payload.balance
           }
         }
@@ -94,7 +94,7 @@ const assetReducer = (state: AssetState, action: AssetAction): AssetState => {
         ...state,
         selectedAssets: {
           ...state.selectedAssets,
-          [action.payload.position]: action.payload.symbol
+          [action.payload.position]: action.payload.ticker
         }
       }
     case 'SWAP_ASSETS':
@@ -176,7 +176,13 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
       const assets: Record<string, Asset> = assetData
 
       assets[NATIVE_ASSET_HASH].logo = '/assets/xel-logo.png';
-      console.log("ASSETS", assets)
+
+      Object.keys(assets).map(async hash => {
+        const balanceResult = await getBalance(hash);
+        const balance = balanceResult?.split(' ')[0] || '0';
+
+        assets[hash].balance = balance
+      })
       
       dispatch({ type: 'SET_ASSETS', payload: assets })
       
@@ -184,7 +190,7 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
       if (!state.selectedAssets.from && assetKeys.length > 0) {
         dispatch({ 
           type: 'SELECT_ASSET', 
-          payload: { position: 'from', symbol: NATIVE_ASSET_HASH } 
+          payload: { position: 'from', ticker: NATIVE_ASSET_HASH } 
         })
       }
       if (!state.selectedAssets.to && assetKeys.length > 1) {
@@ -192,7 +198,7 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
         if (secondAsset) {
           dispatch({ 
             type: 'SELECT_ASSET', 
-            payload: { position: 'to', symbol: secondAsset } 
+            payload: { position: 'to', ticker: secondAsset } 
           })
         }
       }
@@ -211,12 +217,12 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'SET_ASSETS', payload: assets })
   }
 
-  const setAssetBalance = (symbol: string, balance: string) => {
-    dispatch({ type: 'SET_ASSET_BALANCE', payload: { symbol, balance } })
+  const setAssetBalance = (ticker: string, balance: string) => {
+    dispatch({ type: 'SET_ASSET_BALANCE', payload: { ticker, balance } })
   }
 
-  const selectAsset = (position: 'from' | 'to', symbol: string) => {
-    dispatch({ type: 'SELECT_ASSET', payload: { position, symbol } })
+  const selectAsset = (position: 'from' | 'to', ticker: string) => {
+    dispatch({ type: 'SELECT_ASSET', payload: { position, ticker } })
   }
 
   const swapAssets = () => {

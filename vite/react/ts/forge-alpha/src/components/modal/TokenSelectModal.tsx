@@ -80,7 +80,7 @@ const TokenSelectModal = ({
     
     const search = searchTerm.toLowerCase()
     return availableTokens.filter(asset => 
-      asset.symbol.toLowerCase().includes(search) ||
+      asset.ticker.toLowerCase().includes(search) ||
       asset.name.toLowerCase().includes(search) ||
       asset.hash.toLowerCase().includes(search)
     )
@@ -130,7 +130,7 @@ const TokenSelectModal = ({
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name, symbol, or asset ID..."
+                placeholder="Search by name, ticker, or asset ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-black/50 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forge-orange focus:border-transparent"
@@ -152,7 +152,7 @@ const TokenSelectModal = ({
                       ? 'You need tokens that are available in liquidity pools'
                       : 'Select from tokens available in liquidity pools'
                     : otherToken
-                      ? `No pools found with ${poolAssets.get(otherToken)?.symbol || 'selected token'}`
+                      ? `No pools found with ${poolAssets.get(otherToken)?.ticker || 'selected token'}`
                       : 'Select a token above first'
                   }
                 </div>
@@ -173,7 +173,7 @@ const TokenSelectModal = ({
                     `}
                   >
                     <TokenIcon 
-                      tokenSymbol={asset.symbol} 
+                      tokenSymbol={asset.ticker} 
                       tokenName={asset.name} 
                       tokenHash={asset.hash}
                       size={40} 
@@ -181,7 +181,7 @@ const TokenSelectModal = ({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <div className="font-medium text-white truncate">
-                          {asset.symbol}
+                          {asset.ticker}
                         </div>
                       </div>
                       <div className="text-sm text-gray-400 text-left truncate">

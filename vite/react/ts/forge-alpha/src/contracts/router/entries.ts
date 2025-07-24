@@ -13,12 +13,12 @@ import { vmParam, createContractInvocation } from "@/utils/xvmSerializer";
  * @returns {Object} Transaction data object
  */
 export const createAddLiquidityTransaction = (params: types.AddLiquidityParams): Record<string, any> => {
-  const { routerContract, token1Hash, token2Hash, token1Amount, token2Amount, maxGas = 200000000 } = params;
+  const { contract, token1Hash, token2Hash, token1Amount, token2Amount, maxGas = 200000000 } = params;
 
   return createContractInvocation({
-    contract: routerContract,
+    contract,
     maxGas,
-    chunkId: 10,
+    chunkId: 12,
     parameters: [
       vmParam.hash(token1Hash),
       vmParam.hash(token2Hash)
@@ -45,7 +45,7 @@ export const createRemoveLiquidityTransaction = (params: types.RemoveLiquidityPa
 
   return createContractInvocation({
     contract,
-    chunkId: 11,
+    chunkId: 13,
     parameters: [
       vmParam.hash(liquidityTokenHash)
     ],
@@ -73,7 +73,7 @@ export const createSwapTransaction = (params: types.SwapParams): Record<string, 
 
   return createContractInvocation({
     contract,
-    chunkId: 12,
+    chunkId: 14,
     parameters: [
       vmParam.hash(tokenInHash),
       vmParam.hash(tokenOutHash),

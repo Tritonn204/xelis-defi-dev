@@ -17,7 +17,7 @@ export interface AddLiquidityParams {
    * Address of the DEX router contract
    * @example (hex)"1234567890abcdef..."
    */
-  routerContract: string;
+  contract: string;
   
   /** 
    * Hash identifier of the first token in the pair

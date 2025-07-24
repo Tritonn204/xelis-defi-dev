@@ -126,14 +126,16 @@ const TokenInput = ({
             {showMaxHalf && !disabled && parseFloat(balance || '0') > 0 && (
               <>
                 <Button 
-                  className="ml-2 px-0.5 text-xs text-forge-orange hover:text-forge-orange/80 font-medium transition-colors"
+                  className="ml-2 px-1 text-xs text-forge-orange transition-all duration-200 rounded-full ring-white/10 hover:text-forge-orange/80 font-medium"
+                  focusOnClick={false}
                   onClick={handleHalfClick}
                 >
                   HALF
                 </Button>
                 <Button 
-                  className="ml-1 px-0.5 text-xs text-forge-orange hover:text-forge-orange/80 font-medium transition-colors"
+                  className="ml-1 px-1 text-xs text-forge-orange transition-all duration-200 rounded-full ring-forge-orange/10 hover:text-forge-orange/80 font-medium"
                   onClick={handleMaxClick}
+                  focusOnClick={false}
                 >
                   MAX
                 </Button>
