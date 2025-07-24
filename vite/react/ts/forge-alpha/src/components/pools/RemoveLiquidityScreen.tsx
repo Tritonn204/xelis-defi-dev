@@ -7,6 +7,7 @@ import { formatCompactNumber } from '@/utils/number'
 import TokenIcon from '../ui/TokenIcon'
 import Decimal from 'decimal.js'
 import { useAssets } from '@/contexts/AssetContext'
+import { useWallet } from '@/contexts/WalletContext'
 
 interface RemoveLiquidityScreenProps {
   pools: Map<string, PoolData>
@@ -32,6 +33,7 @@ const RemoveLiquidityScreen = ({
   const selectedPool = selectedKey ? pools.get(selectedKey) : null
 
   const { assets } = useAssets()
+  const { trackAsset } = useWallet()
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let raw = e.target.value;
@@ -170,29 +172,53 @@ const RemoveLiquidityScreen = ({
           </div>
         </div>
 
-        <Button
-          onClick={() => selectedPool && onWithdraw(selectedKey!, selectedPool, parseFloat(withdrawAmount))}
-          disabled={!selectedPool || parsedAmount <= 0}
-          isLoading={isSubmitting}
-          staticSize={true}
-          className="
-            w-full 
-            bg-forge-orange 
-            hover:bg-forge-orange/90
-            text-white 
-            font-light
-            text-[1.5rem]
-            py-1 px-4 
-            rounded-lg 
-            transition-all duration-200
-            hover:shadow-lg
-            hover:ring-2 ring-white
-            hover:scale-[1.015]
-            active:scale-[0.98]
-          "
-        >
-          Withdraw
-        </Button>
+        {!!selectedPool && !selectedPool.userTracked ? (
+          <Button
+            onClick={() => trackAsset({asset: selectedPool.lpAsset})}
+            staticSize={true}
+            className="
+              w-full 
+              bg-forge-orange 
+              hover:bg-forge-orange/90
+              text-white 
+              font-light
+              text-[1.5rem]
+              py-1 px-4 
+              rounded-lg 
+              transition-all duration-200
+              hover:shadow-lg
+              hover:ring-2 ring-white
+              hover:scale-[1.015]
+              active:scale-[0.98]
+            "
+          >
+            Track LP Balance
+          </Button>
+        ) : (
+          <Button
+            onClick={() => selectedPool && onWithdraw(selectedKey!, selectedPool, parseFloat(withdrawAmount))}
+            disabled={!selectedPool || parsedAmount <= 0}
+            isLoading={isSubmitting}
+            staticSize={true}
+            className="
+              w-full 
+              bg-forge-orange 
+              hover:bg-forge-orange/90
+              text-white 
+              font-light
+              text-[1.5rem]
+              py-1 px-4 
+              rounded-lg 
+              transition-all duration-200
+              hover:shadow-lg
+              hover:ring-2 ring-white
+              hover:scale-[1.015]
+              active:scale-[0.98]
+            "
+          >
+            {`${parsedAmount > 0 ? "Withdraw" : "Enter Withdrawal %"}`}
+          </Button>
+        )}
       </div>
     </>
   )
