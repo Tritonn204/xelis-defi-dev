@@ -3,7 +3,7 @@ import { useWallet } from '@/contexts/WalletContext'
 import { useNode } from '@/contexts/NodeContext'
 import { useAssets } from '@/contexts/AssetContext'
 import { useEffect, useState } from 'react'
-import { useModuleContext } from '@/contexts/ModuleContext'
+import { ModuleContractField, useModuleContext } from '@/contexts/ModuleContext'
 
 import { ChevronDown, Globe, RefreshCw, Settings } from 'lucide-react'
 
@@ -32,10 +32,20 @@ const Layout = ({ children }) => {
 
   useEffect(() => {
     registerModule('overflow', [
-      { key: 'overflow', label: 'Overflow Module Address', required: true, default: '8cf5ece6607e1fb680594da5f2b447dcd8137fca47919092ac7d6e50e9043a9c' }
+      { key: 'overflow', label: 'Overflow Module Address', required: true, default: '0cde643f30e0e4b1dad569acae3e1687ee5b58f53a41a58c25609f0423b82fe2' }
     ])
   }, [])
 
+
+  const { getContracts } = useModuleContext()
+  const [contractFields, setContractFields] = useState<ModuleContractField[]>([])
+
+  useEffect(() => {
+    const fields = Object.entries(getContracts()).flatMap(([_, fields]) => fields)
+    setContractFields(fields)
+  }, [getContracts])
+
+  
   const handleRefreshAssets = async () => {
     setIsRefreshing(true)
     await refreshAssets()

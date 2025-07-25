@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent, useMemo } from 'react'
 import { useNode } from '@/contexts/NodeContext'
 import { useModuleContext } from '@/contexts/ModuleContext'
 import { X } from 'lucide-react'
@@ -13,9 +13,11 @@ const LOCAL_STORAGE_KEY = 'customNetworkConfig'
 
 const CustomNetworkModal = ({ isOpen, onClose }: CustomNetworkModalProps) => {
   const { connectToCustomNetwork } = useNode()
-  const { getContracts, setContractAddress } = useModuleContext()
+  const { getContracts, contractValues } = useModuleContext()
 
-  const contractFields = Object.entries(getContracts()).flatMap(([_, fields]) => fields)
+  const contractFields = useMemo(() => {
+    return Object.entries(getContracts()).flatMap(([_, fields]) => fields)
+  }, [getContracts])
 
   const [formData, setFormData] = useState<{
     wsEndpoint: string
@@ -25,37 +27,54 @@ const CustomNetworkModal = ({ isOpen, onClose }: CustomNetworkModalProps) => {
     contracts: {}
   })
 
+  const [initialised, setInitialised] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Load saved config from localStorage on mount
   useEffect(() => {
+    if (initialised || contractFields.length === 0) return
+
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY)
-    const defaultContracts = contractFields.reduce((acc, { key }) => {
-      acc[key] = ''
+
+    const registeredDefaults = contractFields.reduce((acc, field) => {
+      acc[field.key] = field.default || ''
       return acc
     }, {} as Record<string, string>)
+
+    const contextContracts = contractValues
+
+    let mergedContracts = { ...registeredDefaults, ...contextContracts }
 
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
+        mergedContracts = {
+          ...registeredDefaults,
+          ...parsed.contracts,       // user overrides
+          ...contextContracts        // latest context wins
+        }
+
         setFormData({
-          ...parsed,
-          contracts: {
-            ...defaultContracts,
-            ...parsed.contracts,
-          }
+          wsEndpoint: parsed.wsEndpoint || 'ws://127.0.0.1:8080/json_rpc',
+          contracts: mergedContracts
         })
       } catch (err) {
         console.error('Failed to parse saved config:', err)
+        setFormData({
+          wsEndpoint: 'ws://127.0.0.1:8080/json_rpc',
+          contracts: mergedContracts
+        })
       }
     } else {
       setFormData({
         wsEndpoint: 'ws://127.0.0.1:8080/json_rpc',
-        contracts: defaultContracts
+        contracts: mergedContracts
       })
     }
-  }, [])
+
+    setInitialised(true)
+  }, [contractFields, contractValues, initialised])
 
   const handleChangeContract = (key: string, value: string) => {
     setFormData(prev => {
@@ -88,18 +107,30 @@ const CustomNetworkModal = ({ isOpen, onClose }: CustomNetworkModalProps) => {
     setError(null)
 
     try {
+      const contractFields = Object.entries(getContracts()).flatMap(([_, fields]) => fields)
+
+      // Fill in defaults for missing contract entries
+      const filledContracts = { ...formData.contracts }
+      for (const field of contractFields) {
+        if (!filledContracts[field.key]) {
+          filledContracts[field.key] = field.default || ''
+        }
+      }
+
       const networkConfig = {
         name: 'Custom Debug Network',
         url: formData.wsEndpoint,
-        contractAddresses: formData.contracts
+        contractAddresses: filledContracts
       }
 
       await connectToCustomNetwork(networkConfig)
 
-      Object.entries(formData.contracts).forEach(([key, value]) => {
-        setContractAddress(key, value.trim())
-      })
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(formData))
+      // Save the updated formData including defaults
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({
+        ...formData,
+        contracts: filledContracts
+      }))
+
       onClose()
     } catch (err: any) {
       console.error('Failed to connect:', err)
