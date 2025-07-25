@@ -56,6 +56,7 @@ const Tools = () => {
   const [activePanel, setActivePanel] = useState(PANELS.CREATE_TOKEN)
   const [currentScreen, setCurrentScreen] = useState(SCREENS.FORM)
   const currentScreenRef = useRef(currentScreen)
+  const [currentFlow, setCurrentFlow] = useState<'create' | 'deploy' | 'mint' | 'update'>('create')
 
   useEffect(() => {
     currentScreenRef.current = currentScreen
@@ -173,6 +174,7 @@ const Tools = () => {
   const submitCreateToken = async () => {
     setIsSubmitting(true)
     setError('')
+    setCurrentFlow('create')
 
     try {
       if (!factoryContract) {
@@ -204,6 +206,7 @@ const Tools = () => {
   const submitDeployContract = async () => {
     setIsSubmitting(true)
     setError('')
+    setCurrentFlow('deploy')
 
     try {
       const txData = factory.entries.createDeployContractTransaction({
@@ -226,6 +229,7 @@ const Tools = () => {
   const submitMintTokens = async () => {
     setIsSubmitting(true)
     setError('')
+    setCurrentFlow('mint')
 
     try {
       if (!factoryContract) {
@@ -255,6 +259,8 @@ const Tools = () => {
       handleTransactionError(err)
     }
   }
+
+  // TODO: update icon submit {}
 
   // Panel icons and labels
   const panels = [
@@ -608,25 +614,39 @@ const Tools = () => {
     )
   }
 
-  const renderSuccessScreen = () => (
-    <div className="text-center py-6">
-      <div className="text-green-400 text-3xl mb-4">✓</div>
-      <h2 className="text-xl font-semibold text-white mb-3">Transaction Successful!</h2>
-      
-      {txHash && (
-        <div className="text-gray-400 mb-4 break-all text-sm">
-          {txHash}
-        </div>
-      )}
-      
-      <Button
-        onClick={() => goToScreen(SCREENS.FORM)}
-        className="w-full bg-forge-orange hover:bg-forge-orange/90 text-white font-light text-[1.5rem] py-1 px-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:ring-2 ring-white hover:scale-[1.015] active:scale-[0.98]"
-      >
-        Continue
-      </Button>
-    </div>
-  )
+  const renderSuccessScreen = () => {
+    const labels = () => {
+      switch (currentFlow) {
+        case 'create':
+          return ["New Token Created!", "TX:"]
+        case 'deploy':
+          return ["Contract Deployed!", "SCID:"]
+        case 'mint':
+          return ["Token Mint Successful!", "TX:"]
+        case 'update':
+          return ["Token Metadata Updated!", "TX:"]
+      }
+    }
+    (
+      <div className="text-center py-6">
+        <div className="text-green-400 text-3xl mb-4">✓</div>
+        <h2 className="text-xl font-semibold text-white mb-3">{labels()[0]}</h2>
+        
+        {txHash && (
+          <div className="text-gray-400 mb-4 break-all text-sm">
+            {labels()[1]} {txHash}
+          </div>
+        )}
+        
+        <Button
+          onClick={() => goToScreen(SCREENS.FORM)}
+          className="w-full bg-forge-orange hover:bg-forge-orange/90 text-white font-light text-[1.5rem] py-1 px-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:ring-2 ring-white hover:scale-[1.015] active:scale-[0.98]"
+        >
+          Continue
+        </Button>
+      </div>
+    )
+  }
 
   const renderErrorScreen = () => (
     <div className="text-center py-6">
