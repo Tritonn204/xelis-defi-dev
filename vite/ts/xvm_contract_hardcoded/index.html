@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My DApp</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+    }
+    textarea {
+      width: 100%;
+      height: 300px;
+      margin-top: 1rem;
+    }
+    select, button {
+      margin-top: 1rem;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>Contract Entry Generator</h1>
+
+  <label for="contractSelect">Choose Contract:</label>
+  <select id="contractSelect">
+    <option value="factory">Factory</option>
+    <option value="router">Router</option>
+  </select>
+
+  <label for="entrySelect">Choose Entry:</label>
+  <select id="entrySelect">
+    <option value="createTokenTransaction">Create Token</option>
+    <option value="createMintTokensTransaction">Mint Tokens</option>
+    <option value="createTransferOwnershipTransaction">Transfer Ownership</option>
+    <option value="createRenounceOwnershipTransaction">Renounce Ownership</option>
+    <option value="createDeployContractTransaction">Deploy Contract</option>
+  </select>
+
+  <div id="paramInputs"></div>
+  <button id="generateBtn">Generate Transaction</button>
+
+  <textarea id="output" readonly placeholder="Transaction JSON will appear here..."></textarea>
+
+  <button id="copyBtn">Copy JSON</button>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

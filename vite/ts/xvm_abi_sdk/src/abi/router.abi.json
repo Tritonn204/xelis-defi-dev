@@ -1,0 +1,50 @@
+[
+  {
+    "chunk_id": 12,
+    "name": "addLiquidity",
+    "outputs": "u64",
+    "params": [
+      {
+        "name": "token0Hash",
+        "type": "Hash"
+      },
+      {
+        "name": "token1Hash",
+        "type": "Hash"
+      }
+    ],
+    "type": "entry"
+  },
+  {
+    "chunk_id": 13,
+    "name": "removeLiquidity",
+    "outputs": "u64",
+    "params": [
+      {
+        "name": "liquidityTokenHash",
+        "type": "Hash"
+      }
+    ],
+    "type": "entry"
+  },
+  {
+    "chunk_id": 14,
+    "name": "swap",
+    "outputs": "u64",
+    "params": [
+      {
+        "name": "tokenInHash",
+        "type": "Hash"
+      },
+      {
+        "name": "tokenOutHash",
+        "type": "Hash"
+      },
+      {
+        "name": "amountOutMin",
+        "type": "u64"
+      }
+    ],
+    "type": "entry"
+  }
+]
