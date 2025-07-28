@@ -105,14 +105,6 @@ entry renounceOwnership(assetHash: Hash) {
     return 0;
 }
 
-entry setFee(newFee: u64) {
-    let storage: Storage = Storage::new();
-    let owner: Address = storage.load("owner").expect("missingContractOwner");
-    require(Transaction::current().source() == owner, "notContractOwner");
-    storage.store("fee", newFee);
-    return 0;
-}
-
 entry setIcon(assetHash: Hash, newIcon: string) {
     let storage: Storage = Storage::new();
     let casset: CAsset = storage.load(assetHash).expect("assetNotFound");
@@ -120,6 +112,14 @@ entry setIcon(assetHash: Hash, newIcon: string) {
     
     casset.icon = newIcon;
     storage.store(assetHash, casset);
+    return 0;
+}
+
+entry setFee(newFee: u64) {
+    let storage: Storage = Storage::new();
+    let owner: Address = storage.load("owner").expect("missingContractOwner");
+    require(Transaction::current().source() == owner, "notContractOwner");
+    storage.store("fee", newFee);
     return 0;
 }
 
