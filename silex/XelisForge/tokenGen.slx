@@ -67,6 +67,7 @@ entry deployAsset(name: string, ticker: string, supply: u64, decimals: u8, minta
     };
     
     storage.store(assetHash, casset);
+    fire_event(1, assetHash);
     return 0;
 }
 
