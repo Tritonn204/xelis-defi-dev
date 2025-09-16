@@ -1,0 +1,99 @@
+entry stake() {
+    let storage: Storage = Storage::new();
+    let dao: Hash = Asset::get_by_id(1).expect("missingDaoToken").get_hash();
+    let deposit: u64 = get_deposit_for_asset(dao).expect("missingDaoDeposit");
+
+    let sender: Address = Transaction::current().source();
+
+    let stakes: map<Address, u64> = storage.load("stakes").expect("missingStakesMap");
+
+    let current: u64 = stakes.get(sender).unwrap_or(0);
+    let newAmount: u64 = current + deposit;
+    stakes.insert(sender, newAmount);
+
+    storage.store("stakes", stakes);
+
+    let total: u64 = storage.load("totalStaked").unwrap_or(0);
+    storage.store("totalStaked", total + deposit);
+    return 0;
+}
+
+entry unstake(amount: u64) {
+    let storage: Storage = Storage::new();
+    let dao: Hash = Asset::get_by_id(1).expect("missingDaoToken").get_hash();
+    let sender: Address = Transaction::current().source();
+
+    let stakes: map<Address, u64> = storage.load("stakes").expect("missingStakesMap");
+    let staked: u64 = stakes.get(sender).unwrap_or(0);
+    require(staked >= amount, "unstakeTooHigh");
+    
+    let total: u64 = storage.load("totalStaked").expect("missingTotalStake");
+    storage.store("totalStaked", total - amount);
+    
+    if staked == amount {
+        stakes.swap_remove(sender)
+    } else {
+        stakes.insert(sender, staked - amount);
+    }
+
+    storage.store("stakes", stakes);
+
+    transfer(sender, amount, dao);
+    return 0;
+}
+
+pub fn depositFee(asset: Hash) {
+    let storage: Storage = Storage::new();
+    let deposit: u64 = get_deposit_for_asset(asset).expect("missingFeeDeposit");
+    let total: u64 = storage.load("totalStaked").expect("missingTotalStake");
+    require(total > 0, "noStakers");
+
+    let stakes: map<Address, u64> = storage.load("stakes").expect("missingStakesMap");
+
+    foreach (address, staked) in stakes.entries() {
+        if staked == 0 { continue; }
+        let share: u64 = ((deposit as u128 * staked as u128) / total as u128) as u64;
+        if share > 0 {
+            transfer(address, share, asset);
+        }
+    }
+}
+
+entry clear_stuck(asset: Hash) {
+    let storage: Storage = Storage::new();
+    let dao: Hash = Asset::get_by_id(1).expect("missingDaoToken").get_hash();
+    require(asset != dao, "assetCannotBeDAO");
+    let source: Address = Transaction::current().source();
+    let owner: Address = storage.load("owner").expect("missingDAOOwner");
+    require(source == owner, "notDAOOwner")
+    transfer(source, get_balance_for_asset(asset), asset)
+    return 0;
+}
+
+hook constructor() -> u64 {
+    let storage: Storage = Storage::new();
+    let deployer: Address = Transaction::current().source();
+
+    let daoAsset: optional<Asset> = Asset::create(
+        1, 
+        "FORGE DAO", 
+        "FORGE", 
+        8, 
+        100_000_000 * 10 ** 8
+    );
+
+    require(daoAsset.is_some(), "daoAssetNotCreated");
+    let createdDao: Asset = daoAsset.expect("daoAssetCreationFailed");
+
+    let daoHash: Hash = createdDao.get_hash();
+    transfer(deployer, createdDao.get_supply(), daoHash);
+    
+    let stakes: map<Address, u64> = {};
+    
+    storage.store("daoToken", daoHash);
+    storage.store("stakes", stakes);
+    storage.store("totalStaked", 0);
+    storage.store("owner", deployer)
+
+    return 0;
+}
