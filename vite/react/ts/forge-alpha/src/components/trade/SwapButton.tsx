@@ -16,8 +16,8 @@ const SwapButton = ({ onClick = (e: any) => {}, loading=false, disabled=false })
         ${disabled ? 'bg-forge-swap cursor-not-allowed' : 'hover:bg-forge-orange/90 cursor-pointer'}
         rounded-full 
         flex items-center justify-center
-        border-1 border-white/5
-        ${!disabled && 'hover:border-white/20'}
+        border-1 border-forge-orange/5
+        ${!disabled && 'hover:border-forge-orange/20'}
         shadow-lg
         transition-all duration-300 ease-out
         ${!disabled && 'hover:scale-110 active:scale-105'}

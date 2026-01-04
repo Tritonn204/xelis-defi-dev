@@ -1,0 +1,431 @@
+version: "3.9"
+
+volumes:
+  redis-data:
+  postgres-data:
+  pgadmin-data:
+
+secrets:
+  redis_url:
+    file: ./secrets/redis-url.txt
+  redis_pass:
+    file: ./secrets/redis-pass.txt
+  cloudflared_credentials:
+    file: ./secrets/cloudflared.json
+  postgres_password:
+    file: ./secrets/postgres-pass.txt
+  postgres_user:
+    file: ./secrets/postgres-user.txt
+  postgres_db:
+    file: ./secrets/postgres-db.txt
+  pgadmin_password:
+    file: ./secrets/pgadmin-pass.txt
+  jwt_secret:
+    file: ./secrets/jwt-secret.txt
+  csrf_secure_cookie:
+    file: ./secrets/csrf-secure-cookie.txt
+  strict_ip_check:
+    file: ./secrets/strict-ip-check.txt
+  admin_allowed_ips:
+    file: ./secrets/admin-allowed-ips.txt
+  admin_email:
+    file: ./secrets/admin-email.txt
+  admin_password:
+    file: ./secrets/admin-password.txt
+  admin_name:
+    file: ./secrets/admin-name.txt
+
+configs:
+  cloudflared_config:
+    file: ./configs/cloudflared.yml
+  wait_for_db:
+    file: ./scripts/wait-for-db.sh
+  pgadmin_servers:
+    file: ./configs/pgadmin-servers.json
+
+networks:
+  forge_net:
+    driver: overlay
+
+x-common-env: &common-env
+  NODE_ENV: ${NODE_ENV:-production}
+
+x-router-contract: &router-contract "204fcaba3d76bd4052175580ae1f13bc0e2ff6c45a5132366a3f6f27913cff6d"
+
+x-common-secrets: &common-secrets
+  - postgres_db
+  - postgres_user 
+  - postgres_password
+  - redis_url
+  - redis_pass
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    networks: [forge_net]
+    volumes: 
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init-db:/docker-entrypoint-initdb.d
+      - ./postgres/entrypoint.sh:/custom-entrypoint.sh:ro
+    secrets: 
+      - postgres_db
+      - postgres_user
+      - postgres_password
+      - admin_email
+      - admin_password
+      - admin_name
+    environment:
+      <<: *common-env 
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    entrypoint: ["/custom-entrypoint.sh"]
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=1GB
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        order: stop-first
+        failure_action: rollback
+        monitor: 60s
+        max_failure_ratio: 0.1
+      rollback_config:
+        order: stop-first
+      placement:
+        constraints: [node.role == manager]
+    healthcheck:
+      test: 
+        - CMD-SHELL
+        - |
+          if [ -f /var/lib/postgresql/data/postmaster.pid ]; then
+            export PGUSER=$$(cat /run/secrets/postgres_user)
+            export PGDATABASE=$$(cat /run/secrets/postgres_db)
+            pg_isready -h localhost -p 5432
+          else
+            echo "Still initializing..." && exit 1
+          fi
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 960s
+
+  pgadmin:
+    image: dpage/pgadmin4:9
+    networks: [forge_net]
+    environment:
+      <<: *common-env 
+      PGADMIN_DEFAULT_EMAIL: tritonn@neptuun.xyz
+      PGADMIN_DEFAULT_PASSWORD_FILE: /run/secrets/pgadmin_password
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+      PGADMIN_DISABLE_POSTFIX: "true"
+      PGADMIN_SERVER_JSON_FILE: "/pgadmin4/servers.json"
+      
+      # Disable CSRF and cookie protection for reverse proxy
+      PGADMIN_CONFIG_WTF_CSRF_ENABLED: "False"
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
+      
+      # Trust proxy
+      PGADMIN_CONFIG_PROXY_X_FOR_COUNT: "1"
+      PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: "1"
+      
+    secrets: 
+      - pgadmin_password
+      - postgres_password
+    configs:
+      - source: pgadmin_servers
+        target: /pgadmin4/servers.json
+        mode: 0444  # Read-only
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    deploy:
+      replicas: 1
+      restart_policy: { condition: on-failure }
+    depends_on:
+      - postgres
+
+  indexer:
+    image: tritonn204/forge-indexer:dev
+    networks: [forge_net]
+    hostname: "{{.Service.Name}}-{{.Task.Slot}}"
+    configs:
+      - source: wait_for_db
+        target: /wait-for-db.sh
+        mode: 0755
+    environment:
+      <<: *common-env 
+      ROLE: indexer
+      SERVICE_NAME: indexer
+      ROUTER_CONTRACT: *router-contract
+      NODE_WS_URLS: "wss://testnet-node.xelis.io/json_rpc,ws://127.0.0.1:8080/json_rpc"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER_FILE: /run/secrets/postgres_user
+      DATABASE_PASSWORD_FILE: /run/secrets/postgres_password
+      DATABASE_NAME_FILE: /run/secrets/postgres_db
+      REDIS_SENTINEL_SERVICE: "redis-sentinel"
+      REDIS_SENTINEL_PORT: "26379"
+      REDIS_MASTER_NAME: "mymaster"
+      REDIS_PASS_FILE: "/run/secrets/redis_pass"
+      REDIS_URL_FILE: "/run/secrets/redis_url"
+    secrets: *common-secrets
+    deploy:
+      replicas: 2
+      restart_policy: { condition: on-failure, delay: 10s }
+      placement:
+        preferences:
+          - spread: node.id
+      update_config:
+        delay: 10s
+        order: stop-first
+    depends_on:
+      - postgres
+    command:
+      - sh
+      - -c
+      - |
+        . /wait-for-db.sh
+        exec node /app/dist/index.js
+
+  candle-builder:
+    image: tritonn204/forge-indexer:dev
+    networks: [forge_net]
+    configs:
+      - source: wait_for_db
+        target: /wait-for-db.sh
+        mode: 0755
+    environment:
+      <<: *common-env 
+      ROLE: candle
+      SERVICE_NAME: candle_leader
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER_FILE: "/run/secrets/postgres_user"
+      DATABASE_PASSWORD_FILE: "/run/secrets/postgres_password"  # Fixed typo
+      DATABASE_NAME_FILE: "/run/secrets/postgres_db"
+      REDIS_SENTINEL_SERVICE: "redis-sentinel"
+      REDIS_SENTINEL_PORT: "26379"
+      REDIS_MASTER_NAME: "mymaster"
+      REDIS_PASS_FILE: "/run/secrets/redis_pass"
+      REDIS_URL_FILE: "/run/secrets/redis_url"
+      ROUTER_CONTRACT: *router-contract
+    secrets: *common-secrets
+    deploy:
+      replicas: 2
+      restart_policy: { condition: on-failure }
+      update_config: { order: start-first, parallelism: 1 }
+      placement:
+        preferences:
+          - spread: node.id
+    depends_on:
+      - postgres
+      - redis-sentinel
+    command:
+      - sh
+      - -c
+      - |
+        . /wait-for-db.sh
+        exec node /app/dist/index.js
+
+  redis-master:
+    image: redis:7-alpine
+    networks: [forge_net]
+    volumes: [redis-data:/data]
+    secrets: [redis_pass]
+    command:
+      - sh
+      - -c
+      - |
+        PW=$$(cat /run/secrets/redis_pass | tr -d '\r\n');
+        exec redis-server \
+          --appendonly yes \
+          --requirepass "$$PW" \
+          --masterauth "$$PW"
+
+  redis-replica:
+    image: redis:7-alpine
+    networks: [forge_net]
+    deploy:
+      replicas: 2
+      placement:
+        preferences:
+          - spread: node.id
+    secrets: [redis_pass]
+    command:
+      - sh
+      - -c
+      - |
+        PW=$$(cat /run/secrets/redis_pass | tr -d '\r\n');
+        exec redis-server \
+          --appendonly yes \
+          --replicaof redis-master 6379 \
+          --requirepass "$$PW" \
+          --masterauth "$$PW"
+
+  redis-sentinel:
+    image: redis:7-alpine
+    networks: [forge_net]
+    deploy:
+      replicas: 3
+      endpoint_mode: dnsrr
+      placement:
+        preferences:
+          - spread: node.id
+    secrets: [redis_pass]
+    command:
+      - sh
+      - -c
+      - |
+        PW=$$(tr -d '\r\n' </run/secrets/redis_pass);
+        echo "Waiting for redis-master DNS..."
+        for i in $$(seq 1 60); do
+          if getent hosts redis-master >/dev/null; then break; fi
+          sleep 1
+        done
+        if ! getent hosts redis-master >/dev/null; then
+          echo "redis-master not resolvable after 60s" >&2
+          exit 1
+        fi
+        cat >/tmp/sentinel.conf <<EOF
+        port 26379
+        bind 0.0.0.0
+        protected-mode no
+        daemonize no
+        requirepass $$PW
+        sentinel monitor mymaster redis-master 6379 2
+        sentinel auth-pass mymaster $$PW
+        sentinel down-after-milliseconds mymaster 5000
+        sentinel parallel-syncs mymaster 1
+        sentinel failover-timeout mymaster 10000
+        sentinel resolve-hostnames yes
+        sentinel announce-hostnames yes
+        EOF
+        exec redis-server /tmp/sentinel.conf --sentinel
+
+  forge-api:
+    image: tritonn204/forge-api:dev
+    networks: [forge_net]
+    hostname: "{{.Service.Name}}-{{.Task.Slot}}"
+    configs:
+      - source: wait_for_db
+        target: /wait-for-db.sh
+        mode: 0755
+    environment:
+      <<: *common-env 
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER_FILE: "/run/secrets/postgres_user"
+      DATABASE_PASSWORD_FILE: "/run/secrets/postgres_password"
+      DATABASE_NAME_FILE: "/run/secrets/postgres_db"
+      REDIS_SENTINEL_SERVICE: "redis-sentinel"
+      REDIS_SENTINEL_PORT: "26379"
+      REDIS_MASTER_NAME: "mymaster"
+      REDIS_PASS_FILE: "/run/secrets/redis_pass"
+      REDIS_URL_FILE: "/run/secrets/redis_url"
+      ROUTER_CONTRACT: *router-contract
+    secrets: *common-secrets
+    deploy:
+      replicas: 3
+      restart_policy: { condition: on-failure }
+      update_config: { order: start-first, parallelism: 1 }
+      placement:
+        preferences:
+          - spread: node.id
+    depends_on:
+      - postgres
+      - redis-sentinel
+    command: 
+      - sh
+      - -c
+      - |
+        . /wait-for-db.sh
+        exec node /app/dist/server.js
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health', r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 3s
+      retries: 6
+      start_period: 45s
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+  cloudflared:
+    image: cloudflare/cloudflared:2025.9.1
+    networks: [forge_net]
+    depends_on:
+      - forge-api
+      - pgadmin
+    secrets:
+      - source: cloudflared_credentials
+        target: /etc/cloudflared/ea45f3d8-1604-4519-9965-266c7b9b1b0c.json
+    configs:
+      - source: cloudflared_config
+        target: /etc/cloudflared/config.yml
+    command: ["tunnel", "--config", "/etc/cloudflared/config.yml", "run"]
+    deploy:
+      replicas: 1
+      restart_policy: { condition: on-failure }
+  admin-dashboard:
+    image: tritonn204/forge-admin:dev
+    networks: [forge_net]
+    hostname: "{{.Service.Name}}-{{.Task.Slot}}"
+    configs:
+      - source: wait_for_db
+        target: /wait-for-db.sh
+        mode: 0755
+    environment:
+      <<: *common-env 
+      SERVICE_NAME: admin_dashboard
+      PORT: "3001"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER_FILE: "/run/secrets/postgres_user"
+      DATABASE_PASSWORD_FILE: "/run/secrets/postgres_password"
+      DATABASE_NAME_FILE: "/run/secrets/postgres_db"
+      REDIS_SENTINEL_SERVICE: "redis-sentinel"
+      REDIS_SENTINEL_PORT: "26379"
+      REDIS_MASTER_NAME: "mymaster"
+      REDIS_PASS_FILE: "/run/secrets/redis_pass"
+      REDIS_URL_FILE: "/run/secrets/redis_url"
+      JWT_SECRET_FILE: "/run/secrets/jwt_secret"
+      CSRF_SECURE_COOKIE_FILE: "/run/secrets/csrf_secure_cookie"
+      STRICT_IP_CHECK_FILE: "/run/secrets/strict_ip_check"
+      ADMIN_ALLOWED_IPS_FILE: "/run/secrets/admin_allowed_ips"
+      PRIMARY_MAINTAINER_EMAIL_FILE: "/run/secrets/admin_email"
+    secrets:
+      - postgres_db
+      - postgres_user
+      - postgres_password
+      - redis_pass
+      - redis_url
+      - jwt_secret
+      - csrf_secure_cookie
+      - strict_ip_check
+      - admin_allowed_ips
+      - admin_email
+    deploy:
+      replicas: 1
+      restart_policy: { condition: on-failure }
+      placement:
+        constraints: [node.role == manager]  # Keep on manager node
+    depends_on:
+      - postgres
+      - redis-sentinel
+    command:
+      - sh
+      - -c
+      - |
+        . /wait-for-db.sh
+        exec node /app/dist/server/index.js
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/health', r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

@@ -1,0 +1,31 @@
+tunnel: ea45f3d8-1604-4519-9965-266c7b9b1b0c
+credentials-file: /etc/cloudflared/ea45f3d8-1604-4519-9965-266c7b9b1b0c.json
+
+loglevel: info
+metrics: 0.0.0.0:2000
+
+ingress:
+  # Forge API
+  - hostname: charts.neptuun.xyz
+    service: http://forge-api:3000
+    originRequest:
+      http2Origin: false
+      connectTimeout: 30s
+      keepAliveTimeout: 180s
+
+  # PostgreSQL Admin UI
+  - hostname: db-admin.neptuun.xyz
+    service: http://pgadmin:80
+    originRequest:
+      http2Origin: false
+      noHappyEyeballs: true
+
+  # Admin Dashboard
+  - hostname: forge-admin.neptuun.xyz
+    service: http://admin-dashboard:3001
+    originRequest:
+      http2Origin: false
+      connectTimeout: 30s
+      keepAliveTimeout: 180s
+
+  - service: http_status:404

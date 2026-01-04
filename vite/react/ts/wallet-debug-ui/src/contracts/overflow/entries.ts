@@ -1,5 +1,5 @@
 import * as types from "./types";
-import { vmParam, createContractInvocation } from "@/utils/xvmSerializer";
+import { VMParam, createContractInvocation } from "@/utils/xvmSerializer";
 
 /**
  * Creates a transaction to add liquidity to a pool
@@ -13,14 +13,14 @@ import { vmParam, createContractInvocation } from "@/utils/xvmSerializer";
  * @returns {Object} Transaction data object
  */
 export const createUnsafeRefund = (params: types.DepositParams): Record<string, any> => {
-  const { contract, asset, amount, maxGas = 200000000 } = params;
+  const { contract, asset, amount, maxGas = 50000000 } = params;
 
   return createContractInvocation({
     contract,
     maxGas,
-    chunkId: 1,
+    entryId: 1,
     parameters: [
-      vmParam.hash(asset),
+      VMParam.hash(asset),
     ],
     deposits: {
       [asset]: amount,
@@ -29,14 +29,14 @@ export const createUnsafeRefund = (params: types.DepositParams): Record<string, 
 }
 
 export const createSafeRefund = (params: types.DepositParams): Record<string, any> => {
-  const { contract, asset, amount, maxGas = 200000000 } = params;
+  const { contract, asset, amount, maxGas = 50000000 } = params;
 
   return createContractInvocation({
     contract,
     maxGas,
-    chunkId: 2,
+    entryId: 2,
     parameters: [
-      vmParam.hash(asset),
+      VMParam.hash(asset),
     ],
     deposits: {
       [asset]: amount,

@@ -20,7 +20,7 @@ const PoolTabs = ({ activeTab, onChange }: PoolTabsProps) => {
           onClick={() => onChange(tab)}
           className={`px-4 py-2 rounded-t text-sm font-semibold ${
             activeTab === tab
-              ? 'bg-black text-forge-orange border border-white/20 border-b-0'
+              ? 'bg-black text-forge-orange border-2 border-forge-orange/30 border-b-0'
               : 'bg-black/40 text-white/50 hover:text-white'
           }`}
         >

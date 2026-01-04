@@ -1,0 +1,34 @@
+struct Balance {
+    balance: u64,
+    asset: Hash,
+    source: Address
+}
+
+fn (balance Balance) charge(cost: u64, payable: bool) {
+    require(cost <= balance.balance, "balanceTooLow");
+
+    if (payable) {
+        let dao_hash: Hash = Storage::new().load("DAOHash").expect("missingDAOHash");
+        let dao_contract: Module = Module::new(dao_hash).unwrap();
+        dao_contract.execute(2, [balance.asset], { balance.asset: cost });
+    }
+
+    balance.balance -= cost;
+}
+
+fn (balance Balance) refund() {
+    if (balance.balance > 0) {
+        transfer(balance.source, balance.balance, balance.asset);
+    }
+}
+
+// Example
+
+let xel_balance: Balance = Balance { 
+    balance: get_deposit_for_asset(xelis).expect("missingXelDeposit"), 
+    asset: xelis,
+    source: owner
+};
+xel_balance.charge(fee, true);
+xel_balance.charge(100000000, false); // Deduct protocol asset fee from tracked refund
+xel_balance.refund();

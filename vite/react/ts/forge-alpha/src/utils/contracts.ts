@@ -22,13 +22,14 @@ export const formatAmountForDisplay = (amount: number, decimals: number) => {
   return (amount / Math.pow(10, decimals)).toFixed(Math.min(decimals, 8))
 }
 
-export const getExitCodeFromOutputs = (
-  outputs: Array<{ exit_code: number | null }>
-): number | null => {
-  for (const output of outputs) {
-    if (typeof output === 'object' && 'exit_code' in output && output.exit_code !== null) {
-      return output.exit_code
+export const getExitCodeFromOutputs = (outputs: any[]): number | null => {
+  if (!Array.isArray(outputs)) return null;
+
+  for (let i = outputs.length - 1; i >= 0; i--) {
+    const o = outputs[i];
+    if (o && typeof o === 'object' && o.type === 'exit_code' && typeof o.value === 'number') {
+      return o.value;
     }
   }
-  return null
-}
+  return null;
+};

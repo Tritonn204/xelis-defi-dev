@@ -1,6 +1,6 @@
 import { 
   VMParameter, 
-  createVMParameter, 
+  createVMPrimitive, 
   ValidationType,
   createContractInvocation,
   ContractInvocationParams 
@@ -15,7 +15,7 @@ export interface ABIParam {
 }
 
 export interface ABIEntry {
-  chunk_id: number;
+  entry_id: number;
   name: string;
   outputs?: string | string[];
   params: ABIParam[];
@@ -163,8 +163,8 @@ export class TypedContract<T extends ABI> {
       if (value !== undefined) {
         try {
           const normalizedType = normalizeType(abiParam.type);
-          const vmParam = createVMParameter(value, normalizedType);
-          parameters.push(vmParam);
+          const VMParam = createVMPrimitive(value, normalizedType);
+          parameters.push(VMParam);
         } catch (error) {
           throw new Error(`Invalid parameter '${abiParam.name}' for method '${methodName}': ${error}`);
         }
@@ -174,9 +174,9 @@ export class TypedContract<T extends ABI> {
     // Create the contract invocation
     const invocationParams: ContractInvocationParams = {
       contract: this.address,
-      chunkId: entry.chunk_id,
+      entryId: entry.entry_id,
       parameters,
-      maxGas: maxGas || 200000000
+      maxGas: maxGas || 50000000
     };
 
     if (deposits && Object.keys(deposits).length > 0) {
@@ -331,7 +331,7 @@ export function validateABI(abi: any): abi is ABI {
       return false;
     }
 
-    if (typeof entry.chunk_id !== 'number') {
+    if (typeof entry.entry_id !== 'number') {
       return false;
     }
 

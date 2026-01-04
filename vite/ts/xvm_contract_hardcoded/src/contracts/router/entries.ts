@@ -1,5 +1,5 @@
 import * as types from "./types";
-import { vmParam, createContractInvocation } from "@/utils/xvmSerializer";
+import { VMParam, createContractInvocation } from "@/utils/xvmSerializer";
 
 /**
  * Creates a transaction to add liquidity to a pool
@@ -13,15 +13,15 @@ import { vmParam, createContractInvocation } from "@/utils/xvmSerializer";
  * @returns {Object} Transaction data object
  */
 export const createAddLiquidityTransaction = (params: types.AddLiquidityParams): Record<string, any> => {
-  const { contract, token1Hash, token2Hash, token1Amount, token2Amount, maxGas = 200000000 } = params;
+  const { contract, token1Hash, token2Hash, token1Amount, token2Amount, maxGas = 50000000 } = params;
 
   return createContractInvocation({
     contract,
     maxGas,
-    chunkId: 12,
+    entryId: 12,
     parameters: [
-      vmParam.hash(token1Hash),
-      vmParam.hash(token2Hash)
+      VMParam.hash(token1Hash),
+      VMParam.hash(token2Hash)
     ],
     deposits: {
       [token1Hash]: token1Amount,
@@ -40,14 +40,14 @@ export const createRemoveLiquidityTransaction = (params: types.RemoveLiquidityPa
     contract, 
     liquidityTokenHash, 
     liquidityAmount,
-    maxGas = 200000000 
+    maxGas = 50000000 
   } = params;
 
   return createContractInvocation({
     contract,
-    chunkId: 13,
+    entryId: 13,
     parameters: [
-      vmParam.hash(liquidityTokenHash)
+      VMParam.hash(liquidityTokenHash)
     ],
     deposits: {
       [liquidityTokenHash]: liquidityAmount
@@ -68,16 +68,16 @@ export const createSwapTransaction = (params: types.SwapParams): Record<string, 
     tokenOutHash, 
     amountIn,
     amountOutMin,
-    maxGas = 200000000 
+    maxGas = 50000000 
   } = params;
 
   return createContractInvocation({
     contract,
-    chunkId: 14,
+    entryId: 14,
     parameters: [
-      vmParam.hash(tokenInHash),
-      vmParam.hash(tokenOutHash),
-      vmParam.u64(amountOutMin)
+      VMParam.hash(tokenInHash),
+      VMParam.hash(tokenOutHash),
+      VMParam.u64(amountOutMin)
     ],
     deposits: {
       [tokenInHash]: amountIn

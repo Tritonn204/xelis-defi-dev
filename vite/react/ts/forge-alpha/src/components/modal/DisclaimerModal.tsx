@@ -47,7 +47,7 @@ const DisclaimerModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-black/80 border border-white/15 rounded-xl w-full max-w-md p-6 z-10">
+      <div className="relative bg-black/80 border-2 border-forge-orange/30 rounded-xl w-full max-w-md p-6 z-10">
         <h2 className="text-xl font-semibold text-white mb-3">{title}</h2>
         <p className="text-white/80 mb-4">{message}</p>
 

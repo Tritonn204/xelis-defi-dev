@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { NATIVE_ASSET_HASH, useNode } from '@/contexts/NodeContext'
 import { useWallet } from '@/contexts/WalletContext'
 import { entries } from '@/contracts/overflow/contract'
-import { vmParam } from '@/utils/xvmSerializer'
+import { VMParam } from '@/utils/xvmSerializer'
 import Button from '@/components/ui/Button'
 import { useTransactionContext } from '@/contexts/TransactionContext'
 import { useModuleContext } from '@/contexts/ModuleContext'
@@ -76,7 +76,7 @@ const TxRecordItem = ({
 
 const OverflowDebugger = () => {
   const { buildTransaction, submitTransaction, isConnected, connectWallet } = useWallet()
-  const { getContractData, currentNode, getContractOutputs } = useNode()
+  const { getContractData, currentNode, getContractLogs } = useNode()
   const { awaitContractInvocation } = useTransactionContext()
   const [amount, setAmount] = useState('')
   const [search, setSearch] = useState('')
@@ -165,8 +165,8 @@ const OverflowDebugger = () => {
   const fetchRecords = async () => {
     if (!contract) return
 
-    const failKey = vmParam.string('failures')
-    const successKey = vmParam.string('safeTXRecords')
+    const failKey = VMParam.string('failures')
+    const successKey = VMParam.string('safeTXRecords')
 
     const [failData, successData] = await Promise.all([
       getContractData({ contract, key: failKey }),
@@ -277,7 +277,7 @@ const OverflowDebugger = () => {
                 decimals={decimals || 8}
                 variant="fail"
                 onShowOutputs={async () => {
-                  const res = await getContractOutputs({ transaction: r.value[0].value })
+                  const res = await getContractLogs({ transaction: r.value[0].value })
                   setSelectedOutputs(Array.isArray(res) ? res : [])
                   setIsOutputModalOpen(true)
                 }}
@@ -297,7 +297,7 @@ const OverflowDebugger = () => {
                 decimals={decimals || 8}
                 variant="success"
                 onShowOutputs={async () => {
-                  const res = await getContractOutputs({ transaction: r.value[0].value })
+                  const res = await getContractLogs({ transaction: r.value[0].value })
                   setSelectedOutputs(Array.isArray(res) ? res : [])
                   setIsOutputModalOpen(true)
                 }}

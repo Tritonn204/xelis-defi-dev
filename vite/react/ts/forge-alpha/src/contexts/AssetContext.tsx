@@ -24,6 +24,7 @@ interface AssetState {
     from: string
     to: string
   }
+  execSlippage: number
   slippage: number
   priceImpact: number
   loading: boolean
@@ -36,6 +37,7 @@ interface AssetContextType extends AssetState {
   swapAssets: () => void
   setAmount: (position: 'from' | 'to', amount: string) => void
   setSlippage: (slippage: number) => void
+  setExecSlippage: (slippage: number) => void
   setPriceImpact: (impact: number) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
@@ -55,6 +57,7 @@ const initialState: AssetState = {
     to: ''
   },
   slippage: 0.5,
+  execSlippage: 0,
   priceImpact: 0,
   loading: false,
   error: null
@@ -67,6 +70,7 @@ type AssetAction =
   | { type: 'SWAP_ASSETS' }
   | { type: 'SET_AMOUNT'; payload: { position: 'from' | 'to'; amount: string } }
   | { type: 'SET_SLIPPAGE'; payload: number }
+  | { type: 'SET_EXEC_SLIPPAGE'; payload: number }
   | { type: 'SET_PRICE_IMPACT'; payload: number }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
@@ -122,6 +126,11 @@ const assetReducer = (state: AssetState, action: AssetAction): AssetState => {
         ...state,
         slippage: action.payload
       }
+    case 'SET_EXEC_SLIPPAGE':
+      return {
+        ...state,
+        execSlippage: action.payload
+      }
     case 'SET_PRICE_IMPACT':
       return {
         ...state,
@@ -155,15 +164,34 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
     getRawBalance 
   } = useWallet()
   
-  const { 
+  const {
     getAsset,
-    getAssetSupply 
+    getAssetSupply,
+    currentNetwork,
+    currentNode
   } = useNode()
 
-  // Load assets when wallet is connected
+  // Clear assets immediately when network or node URL changes to prevent stale data
+  const currentNodeUrl = currentNode?.url;
+  useEffect(() => {
+    dispatch({ type: 'SET_ASSETS', payload: {} })
+    dispatch({ type: 'SELECT_ASSET', payload: { position: 'from', ticker: '' } })
+    dispatch({ type: 'SELECT_ASSET', payload: { position: 'to', ticker: '' } })
+    dispatch({ type: 'SET_AMOUNT', payload: { position: 'from', amount: '' } })
+    dispatch({ type: 'SET_AMOUNT', payload: { position: 'to', amount: '' } })
+  }, [currentNetwork, currentNodeUrl])
+
+  // Load assets when wallet is connected, clear when disconnected
   useEffect(() => {
     if (isConnected && address) {
       loadWalletAssets()
+    } else if (!isConnected) {
+      // Clear assets when wallet disconnects
+      dispatch({ type: 'SET_ASSETS', payload: {} })
+      dispatch({ type: 'SELECT_ASSET', payload: { position: 'from', ticker: '' } })
+      dispatch({ type: 'SELECT_ASSET', payload: { position: 'to', ticker: '' } })
+      dispatch({ type: 'SET_AMOUNT', payload: { position: 'from', amount: '' } })
+      dispatch({ type: 'SET_AMOUNT', payload: { position: 'to', amount: '' } })
     }
   }, [isConnected, address, xelBalance])
 
@@ -175,7 +203,8 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
       const assetData = await getAssets() as Record<string, any>
       const assets: Record<string, Asset> = assetData
 
-      assets[NATIVE_ASSET_HASH].logo = '/assets/xel-logo.png';
+      if (assets[NATIVE_ASSET_HASH])
+        assets[NATIVE_ASSET_HASH].logo = '/assets/xel-logo.png';
 
       Object.keys(assets).map(async hash => {
         const balanceResult = await getBalance(hash);
@@ -237,6 +266,10 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'SET_SLIPPAGE', payload: slippage })
   }
 
+  const setExecSlippage = (slippage: number) => {
+    dispatch({ type: 'SET_EXEC_SLIPPAGE', payload: slippage })
+  }
+
   const setPriceImpact = (impact: number) => {
     dispatch({ type: 'SET_PRICE_IMPACT', payload: impact })
   }
@@ -262,6 +295,7 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
       selectAsset,
       swapAssets,
       setAmount,
+      setExecSlippage,
       setSlippage,
       setPriceImpact,
       setLoading,

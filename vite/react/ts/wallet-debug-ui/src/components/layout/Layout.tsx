@@ -32,7 +32,7 @@ const Layout = ({ children }) => {
 
   useEffect(() => {
     registerModule('overflow', [
-      { key: 'overflow', label: 'Overflow Module Address', required: true, default: '0cde643f30e0e4b1dad569acae3e1687ee5b58f53a41a58c25609f0423b82fe2' }
+      { key: 'overflow', label: 'Overflow Module Address', required: true, default: '394fb25d3cbd3f10e9189b312530a6ee26ddb54f18c5ecbaff93d4015d45ffdf' }
     ])
   }, [])
 
@@ -56,7 +56,6 @@ const Layout = ({ children }) => {
     <div
       className="fixed top-0 left-0 right-0 bottom-0"
       style={{
-        backgroundImage: `url(${bgImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'

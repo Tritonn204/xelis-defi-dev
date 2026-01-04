@@ -6,44 +6,45 @@ import { useAssets } from '@/contexts/AssetContext'
 import { useState } from 'react'
 
 import { Edit3, Settings, ChevronDown, Globe, RefreshCw } from 'lucide-react'
-import type { CustomNetworkConfig } from '@/contexts/NodeContext'
+import type { NodeConfig } from '@/contexts/NodeContext'
 
 import Button from '../ui/Button'
-// import ConfirmDialog from '../ui/ConfirmDialog'
 import CustomNetworkModal from '../modal/CustomNetworkModal'
+import ThreeForgeBackground from '@/components/ThreeForgeBackground'
 
 import bannerImage from '@/assets/banner.png'
-import bgImage from '@/assets/bg.png'
 import Tooltip from '../ui/Tooltip'
 import { usePools } from '@/contexts/PoolContext'
 
-const Layout = ({ children }) => {
+const Layout = ({ children }: any) => {
   const location = useLocation()
-  const { isConnected, address, connectWallet, connecting } = useWallet()
-  const { 
-    currentNetwork, 
+  const {
+    isConnected,
+    address,
+    connecting,
+    openConnectModal,
+  } = useWallet()
+  const {
+    currentNetwork,
     currentNode,
-    // networkInfo, 
-    networkMismatch, 
+    networkMismatch,
     connectToNetwork,
     connectToCustomNetwork,
-    // deleteCustomNetwork,
     getCustomNetworks,
     generateNetworkId,
-    isConnected: nodeConnected 
+    isConnected: nodeConnected
   } = useNode()
   const { loadingPools, activePools, refreshPools } = usePools()
-  // Add useAssets hook
   const { error: assetError, loading: assetsLoading, refreshAssets } = useAssets()
-  
+
   const [showNetworkDropdown, setShowNetworkDropdown] = useState(false)
   const [showCustomModal, setShowCustomModal] = useState(false)
-  const [editingNetwork, setEditingNetwork] = useState<{ id: string, config: CustomNetworkConfig } | null>(null)
+  const [editingNetwork, setEditingNetwork] = useState<{ id: string, config: NodeConfig } | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const customNetworks = getCustomNetworks()
 
-  const handleEditNetwork = (e: React.MouseEvent, networkId: string, config: CustomNetworkConfig) => {
+  const handleEditNetwork = (e: React.MouseEvent, networkId: string, config: NodeConfig) => {
     e.stopPropagation()
     setEditingNetwork({ id: networkId, config })
     setShowCustomModal(true)
@@ -55,7 +56,7 @@ const Layout = ({ children }) => {
     setEditingNetwork(null)
   }
 
-  const handleCustomNetworkConnect = (config: CustomNetworkConfig) => {
+  const handleCustomNetworkConnect = (config: NodeConfig) => {
     connectToCustomNetwork(config)
     setShowNetworkDropdown(false)
   }
@@ -70,8 +71,8 @@ const Layout = ({ children }) => {
   const navigation = [
     { name: 'TRADE', path: '/trade' },
     { name: 'POOLS', path: '/pools' },
-    { name: 'TOOLS', path: '/tools' },
-    { name: 'BRIDGE', path: '/bridge' }
+    { name: 'FORGE', path: '/forge' },
+    { name: 'VAULTS', path: '/vault' }
   ]
 
   const isActive = (path: any) => {
@@ -93,14 +94,15 @@ const Layout = ({ children }) => {
   return (
     <div 
       className="fixed top-0 left-0 right-0 bottom-0"
-      style={{
-        backgroundImage: `url(${bgImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
+      // style={{
+      //   backgroundImage: `url(${bgImage})`,
+      //   backgroundSize: 'cover',
+      //   backgroundPosition: 'center',
+      //   backgroundRepeat: 'no-repeat'
+      // }}
     >
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm">
+      <ThreeForgeBackground  />
+      <header className="fixed top-0 left-0 right-0 z-50">
         <div className="w-full px-5">
           <div className="relative flex items-center justify-between h-20">
             
@@ -124,19 +126,20 @@ const Layout = ({ children }) => {
                   <ChevronDown className="w-4 h-4 text-gray-400" />
                 </Button>
 
+                {/* TODO: make the network dropdown a component */}
                 {/* Network Dropdown */}
                 {showNetworkDropdown && (
-                  <div className="absolute top-full mt-2 left-0 bg-black/40 border border-white/10 rounded-md min-w-49.5 z-50">
+                  <div className="absolute top-full mt-2 left-0 bg-black/80 border-2 border-forge-orange/30 rounded-md min-w-49.5 z-50">
                     {/* Regular Networks */}
-                    {['mainnet', 'testnet'].map((network) => (
+                    {['mainnet', 'stagenet', 'testnet'].map((network) => (
                       <Button
                         key={network}
                         onClick={() => {
                           connectToNetwork(network as any)
                           setShowNetworkDropdown(false)
                         }}
-                        className={`rounded-sm w-full text-left px-4 py-2 hover:bg-black/50 transition-colors ${
-                          currentNetwork === network ? 'text-white' : 'text-white/30'
+                        className={`rounded-sm w-full text-left px-4 py-2 pr-8 ${
+                          currentNetwork === network ? 'text-white' : 'text-white/30 hover:text-white/80'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -168,7 +171,7 @@ const Layout = ({ children }) => {
                                   isActive ? 'text-white' : 'text-white/30 hover:text-white/80'
                                 }`}
                               >
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between transition-colors">
                                   <span className="truncate">{config.name}</span>
                                 </div>
                               </Button>
@@ -270,13 +273,13 @@ const Layout = ({ children }) => {
                 </div>
               ) : (
                 <Button
-                  onClick={connectWallet}
+                  onClick={openConnectModal}
                   className="bg-white text-black px-2.5 py-1 rounded-md text-[1.3rem] font-light transition-all duration-200 ring-forge-orange hover:ring-2 hover:scale-[1.02]"
                   isLoading={connecting}
                   focusOnClick={false}
                   staticSize={true}
                 >
-                  Connect
+                  {connecting ? 'Connecting...' : 'Connect'}
                 </Button>
               )}
               <Button className="text-gray-300 hover:text-white rounded-full" onClick={()=>{}}>
@@ -287,14 +290,14 @@ const Layout = ({ children }) => {
         </div>
       </header>
 
-      <main className="overflow-y-auto h-full pt-20 scrollbar scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+      <main className="overflow-y-auto h-full pt-[8rem] scrollbar scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {children}
         </div>
       </main>
 
       {/* Custom Network Modal */}
-      <CustomNetworkModal 
+      <CustomNetworkModal
         isOpen={showCustomModal}
         onClose={handleCloseModal}
         editingNetwork={editingNetwork}

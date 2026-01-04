@@ -72,7 +72,7 @@ export interface CreateTokenParams {
   
   /**
    * Maximum gas units to allocate for the transaction
-   * @default 200000000
+   * @default 50000000
    * @minimum 1000000
    */
   maxGas?: number;
@@ -123,7 +123,7 @@ export interface MintTokensParams {
   
   /**
    * Maximum gas units to allocate for the transaction
-   * @default 200000000
+   * @default 50000000
    * @minimum 1000000
    */
   maxGas?: number;
@@ -165,7 +165,7 @@ export interface TransferOwnershipParams {
   
   /**
    * Maximum gas units to allocate for the transaction
-   * @default 200000000
+   * @default 50000000
    * @minimum 1000000
    */
   maxGas?: number;
@@ -201,7 +201,7 @@ export interface RenounceOwnershipParams {
   
   /**
    * Maximum gas units to allocate for the transaction
-   * @default 200000000
+   * @default 50000000
    * @minimum 1000000
    */
   maxGas?: number;
@@ -238,7 +238,7 @@ export interface DeployContractParams {
   /**
    * Maximum gas units to allocate for the deployment
    * @description Contract deployment typically requires more gas than regular transactions
-   * @default 200000000
+   * @default 50000000
    * @minimum 10000000
    */
   maxGas?: number;

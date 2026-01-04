@@ -13,7 +13,7 @@ const LOCAL_STORAGE_KEY = 'customNetworkConfig'
 
 const CustomNetworkModal = ({ isOpen, onClose }: CustomNetworkModalProps) => {
   const { connectToCustomNetwork } = useNode()
-  const { getContracts, contractValues } = useModuleContext()
+  const { getContracts, setContractAddress, contractValues } = useModuleContext()
 
   const contractFields = useMemo(() => {
     return Object.entries(getContracts()).flatMap(([_, fields]) => fields)
@@ -124,6 +124,10 @@ const CustomNetworkModal = ({ isOpen, onClose }: CustomNetworkModalProps) => {
       }
 
       await connectToCustomNetwork(networkConfig)
+
+      for (const field of contractFields) {
+        setContractAddress(field.key, filledContracts[field.key])
+      }
 
       // Save the updated formData including defaults
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({

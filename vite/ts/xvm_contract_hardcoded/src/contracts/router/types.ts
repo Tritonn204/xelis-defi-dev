@@ -7,8 +7,8 @@
  *   token1Hash: (hex)"abc...",
  *   token2Hash: (hex)"def...",
  *   token1Amount: 1000000000,
- *   token2Amount: 2000000000,
- *   maxGas: 200000000
+ *   token2Amount: 500000000,
+ *   maxGas: 50000000
  * };
  * ```
  */
@@ -47,7 +47,7 @@ export interface AddLiquidityParams {
   
   /** 
    * Maximum gas units to allocate for the transaction
-   * @default 200000000
+   * @default 50000000
    * @minimum 1000000
    */
   maxGas?: number;
@@ -62,7 +62,7 @@ export interface AddLiquidityParams {
  *   contract: (hex)"789...",
  *   liquidityTokenHash: (hex)"lp123...",
  *   liquidityAmount: 500000000,
- *   maxGas: 200000000
+ *   maxGas: 50000000
  * };
  * ```
  */
@@ -88,7 +88,7 @@ export interface RemoveLiquidityParams {
   
   /** 
    * Maximum gas units to allocate for the transaction
-   * @default 200000000
+   * @default 50000000
    * @minimum 1000000
    */
   maxGas?: number;
@@ -105,7 +105,7 @@ export interface RemoveLiquidityParams {
  *   tokenOutHash: (hex)"token2...",
  *   amountIn: 1000n,
  *   amountOutMin: 950n, // 5% slippage tolerance
- *   maxGas: 200000000
+ *   maxGas: 50000000
  * };
  * ```
  */
@@ -146,7 +146,7 @@ export interface SwapParams {
   
   /** 
    * Maximum gas units to allocate for the transaction
-   * @default 200000000
+   * @default 50000000
    * @minimum 1000000
    */
   maxGas?: number;

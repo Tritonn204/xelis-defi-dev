@@ -30,7 +30,7 @@ export const TransactionProvider = ({ children }: { children: ReactNode }) => {
   const [transactions, setTransactions] = useState<TrackedTx[]>([])
   const txCallbacksRef = useRef<Map<string, TxCallback>>(new Map())
 
-  const { getContractOutputs, awaitTx } = useNode()
+  const { getContractLogs, awaitTx } = useNode()
 
   const awaitContractInvocation = (txHash: string, contract: string, callback?: TxCallback) => {
     if (callback) {
@@ -40,7 +40,7 @@ export const TransactionProvider = ({ children }: { children: ReactNode }) => {
     updateTransaction(txHash, 'pending')
 
     awaitTx(txHash, async () => {
-      const out = await getContractOutputs({ transaction: txHash, contract })
+      const out = await getContractLogs({ transaction: txHash, contract })
       const exitCode = getExitCodeFromOutputs(out)
 
       console.log("contract outputs", out)

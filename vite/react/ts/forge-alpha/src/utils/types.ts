@@ -138,3 +138,29 @@ export const responseTransformers = {
     return transformed;
   }
 }
+
+// TODO: Move to SDK
+export type MaxSupplyMode =
+  | { type: 'none' }
+  | { type: 'fixed'; value: bigint }
+  | { type: 'mintable'; value: bigint };
+
+// Optional: Helper functions for construction
+export const MaxSupplyMode = {
+  None: (): MaxSupplyMode => ({ type: 'none' }),
+  Fixed: (value: bigint): MaxSupplyMode => ({ type: 'fixed', value }),
+  Mintable: (value: bigint): MaxSupplyMode => ({ type: 'mintable', value }),
+} as const;
+
+// Optional: Type guards for narrowing
+export function isNone(mode: MaxSupplyMode): mode is { type: 'none' } {
+  return mode.type === 'none';
+}
+
+export function isFixed(mode: MaxSupplyMode): mode is { type: 'fixed'; value: bigint } {
+  return mode.type === 'fixed';
+}
+
+export function isMintable(mode: MaxSupplyMode): mode is { type: 'mintable'; value: bigint } {
+  return mode.type === 'mintable';
+}

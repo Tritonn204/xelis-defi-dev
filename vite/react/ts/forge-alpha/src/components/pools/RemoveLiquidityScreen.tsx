@@ -5,7 +5,7 @@ import PoolList from './PoolList'
 import { PoolData } from '@/contexts/PoolContext'
 import { formatCompactNumber } from '@/utils/number'
 import TokenIcon from '../ui/TokenIcon'
-import Decimal from 'decimal.js'
+import Big from 'big.js'
 import { useAssets } from '@/contexts/AssetContext'
 import { useWallet } from '@/contexts/WalletContext'
 
@@ -48,16 +48,16 @@ const RemoveLiquidityScreen = ({
     }
 
     try {
-      const percent = new Decimal(raw || '0');
-      const clamped = Decimal.min(100, Decimal.max(0, percent));
+      const percent = new Big(raw || '0');
+      const clamped = new Big(Math.min(100, Math.max(0, +raw)));
 
-      if (!percent.equals(clamped)) {
+      if (!(percent == clamped)) {
         setInputValue(clamped.toString());
       }
 
-      const lpBalance = new Decimal(assets[selectedPool.lpAsset]?.balance || '0');
-      const amountToWithdraw = lpBalance.mul(clamped).div(100).toDecimalPlaces(8, Decimal.ROUND_DOWN);
-      const finalAmt = amountToWithdraw.mul(new Decimal(10).pow(8)).floor()
+      const lpBalance = new Big(assets[selectedPool.lpAsset]?.balance || '0');
+      const amountToWithdraw = Big(lpBalance.times(clamped).div(100).round(8, Big.roundDown));
+      const finalAmt = amountToWithdraw.times(new Big(10).pow(8)).round(0, Big.roundDown);
 
       console.log(finalAmt.toString(), lpBalance.toString())
       setWithdrawAmount(finalAmt.toString());
@@ -70,7 +70,7 @@ const RemoveLiquidityScreen = ({
   const withdrawFraction = Math.min(1, Math.max(0, parsedAmount / 100)); 
 
   const tokenWithdrawals = selectedPool?.locked.map((amount) =>
-    new Decimal(amount).mul(new Decimal(withdrawFraction))
+    new Big(amount).mul(new Big(withdrawFraction))
   ) ?? [];
 
   return (
@@ -115,7 +115,7 @@ const RemoveLiquidityScreen = ({
         )}
       </div>
 
-      <div className="mt-1 bg-black/70 border border-white/15 rounded-xl p-2 space-y-2">
+      <div className="mt-1 bg-black/70 border border-forge-orange/30 rounded-xl p-2 space-y-2">
         <div className="text-lg text-forge-orange">
           {selectedPool ? (
             <>
@@ -163,7 +163,7 @@ const RemoveLiquidityScreen = ({
               value={inputValue}
               onChange={handleAmountChange}
               placeholder="12.5"
-              className="w-full pr-6 bg-black/80 text-white text-lg p-2 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-forge-orange"
+              className="w-full pr-6 bg-black/80 text-white text-lg p-2 rounded-lg border border-forge-orange/30 focus:outline-none focus:ring-2 focus:ring-forge-orange"
               disabled={!selectedPool}
             />
             <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 text-lg pointer-events-none">

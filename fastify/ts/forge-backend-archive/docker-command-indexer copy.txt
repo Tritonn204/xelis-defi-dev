@@ -1,0 +1,1 @@
+docker buildx build -f packages/forge-indexer/Dockerfile -t tritonn204/forge-indexer:dev .

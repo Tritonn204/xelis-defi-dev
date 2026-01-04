@@ -1,20 +1,25 @@
 import { useAssets } from '@/contexts/AssetContext'
 import { useWallet } from '@/contexts/WalletContext'
-import { usePools } from '@/contexts/PoolContext'
+import { usePools, canonicalPoolKey } from '@/contexts/PoolContext'
 import { useTransactionContext } from '@/contexts/TransactionContext'
-import { useState, useEffect, useMemo, useRef } from 'react'
-import TokenInput from '@/components/trade/TokenInput'
-import TokenStats from '@/components/trade/TokenStats'
-import SwapButton from '@/components/trade/SwapButton'
-import SlippageSettings from '@/components/trade/SlippageSettings'
-import Button from '@/components/ui/Button'
-import GeometricAccents from '@/components/ui/GeometricAccents'
-import TokenSelectModal from '@/components/modal/TokenSelectModal'
+import { useState, useEffect, useMemo, useRef, lazy, Suspense, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { v1 } from '@/utils/swapCalculations'
-import * as router from '@/contracts/router/contract'
 import { usePrices } from '@/contexts/PriceContext'
+import { useForge } from '@/contexts/ForgeContext'
+import { showSubmitToast } from '@/utils/toast'
+
+// Eager load lightweight components
+import { SimpleTradingView } from '@/components/trade/views/Simple'
+
+// ✅ LAZY LOAD HEAVY COMPONENTS
+const ProTradingView = lazy(() => import('@/components/trade/views/Pro'))
+const TokenSelectModal = lazy(() => import('@/components/modal/TokenSelectModal'))
+
+import type { TradingViewProps } from '@/types/trade'
 
 const Trade = () => {
+  // ============ ALL EXISTING HOOKS AND LOGIC (unchanged) ============
   const { 
     assets, 
     selectedAssets, 
@@ -22,8 +27,10 @@ const Trade = () => {
     swapAssets, 
     setAmount,
     selectAsset,
+    execSlippage,
     slippage,
     setSlippage,
+    setExecSlippage,
     priceImpact,
     setPriceImpact,
     loading,
@@ -31,18 +38,25 @@ const Trade = () => {
     refreshAssets,
     setError: setAssetError
   } = useAssets()
-  const { 
-    isConnected, 
-    connectWallet, 
+  
+  const {
+    isConnected,
+    openConnectModal,
     connecting,
     buildTransaction,
     submitTransaction,
     clearTxCache
   } = useWallet()
+
   const { activePools, routerContract, refreshPools, poolAssets } = usePools()
   const { awaitContractInvocation } = useTransactionContext()
   const { assetPrices } = usePrices()
+  const { router, isProMode, setProMode } = useForge()
 
+  // URL sync
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // State declarations
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalPosition, setModalPosition] = useState<'from' | 'to'>('from')
   const [lastEditedField, setLastEditedField] = useState<'from' | 'to'>('from')
@@ -51,35 +65,87 @@ const Trade = () => {
   const [error, setError] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
 
+  // Track current screen state for transaction callbacks
+  const isSwappingRef = useRef(false)
+  const isInitialized = useRef(false)
+
   const fromToken = poolAssets.get(selectedAssets.from)
   const toToken = poolAssets.get(selectedAssets.to)
 
-  // Track current screen state for transaction callbacks
-  const isSwappingRef = useRef(false)
+  // Handle wallet disconnects - free up buttons
+  useEffect(() => {
+    if (!isConnected && isSubmitting) {
+      setIsSubmitting(false)
+      isSwappingRef.current = false
+    }
+  }, [isConnected, isSubmitting])
 
+  // Initialize from URL params on mount (once pools are loaded)
+  useEffect(() => {
+    if (isInitialized.current || activePools.size === 0) return
+
+    const mode = searchParams.get('mode')
+    const fromHash = searchParams.get('from')
+    const toHash = searchParams.get('to')
+
+    // Set mode if specified
+    if (mode === 'pro' || mode === 'lite') {
+      setProMode(mode === 'pro')
+    }
+
+    // Set tokens if specified and valid
+    if (fromHash && poolAssets.has(fromHash)) {
+      selectAsset('from', fromHash)
+    }
+    if (toHash && poolAssets.has(toHash)) {
+      selectAsset('to', toHash)
+    }
+
+    isInitialized.current = true
+  }, [searchParams, activePools, poolAssets, selectAsset, setProMode])
+
+  // Sync URL with state (after initialization)
+  useEffect(() => {
+    if (!isInitialized.current) return
+
+    const params = new URLSearchParams()
+
+    // Add mode
+    params.set('mode', isProMode ? 'pro' : 'lite')
+
+    // Add tokens if selected
+    if (selectedAssets.from) {
+      params.set('from', selectedAssets.from)
+    }
+    if (selectedAssets.to) {
+      params.set('to', selectedAssets.to)
+    }
+
+    // Replace URL without adding to history
+    setSearchParams(params, { replace: true })
+  }, [isProMode, selectedAssets.from, selectedAssets.to, setSearchParams])
+
+  // ============ ALL EXISTING LOGIC (unchanged) ============
+  
   // Check if the selected pair has a valid pool
   const hasValidPool = useMemo(() => {
     if (!selectedAssets.from || !selectedAssets.to) return false
-    const poolKey1 = `${selectedAssets.from}_${selectedAssets.to}`
-    const poolKey2 = `${selectedAssets.to}_${selectedAssets.from}`
-
-    return activePools.get(poolKey1) || activePools.get(poolKey2)
+    const poolKey = canonicalPoolKey(selectedAssets.from, selectedAssets.to)
+    return activePools.has(poolKey)
   }, [selectedAssets, activePools])
 
   // Get pool reserves for the selected pair
   const poolReserves = useMemo(() => {
-    if (!hasValidPool) return null
-    
-    const pool = Array.from(activePools.values()).find(pool => 
-      pool.hashes.includes(selectedAssets.from) && 
-      pool.hashes.includes(selectedAssets.to)
-    )
-    
+    if (!hasValidPool || !selectedAssets.from || !selectedAssets.to) return null
+
+    const poolKey = canonicalPoolKey(selectedAssets.from, selectedAssets.to)
+    const pool = activePools.get(poolKey)
+
     if (!pool) return null
-    
+
     const fromIndex = pool.hashes.indexOf(selectedAssets.from)
     const toIndex = pool.hashes.indexOf(selectedAssets.to)
-    
+
     return {
       fromReserve: parseFloat(pool.locked[fromIndex]),
       toReserve: parseFloat(pool.locked[toIndex])
@@ -117,6 +183,7 @@ const Trade = () => {
   }, [swapAmounts.from, poolReserves, slippage, fromToken, toToken])
 
   useEffect(() => {
+    // existing useEffect logic...
   }, [assetPrices])
 
   // Calculate swap amounts when input changes
@@ -128,6 +195,7 @@ const Trade = () => {
         setAmount('from', '')
       }
       setPriceImpact(0)
+      setExecSlippage(0)
       return
     }
 
@@ -140,7 +208,7 @@ const Trade = () => {
       const reserveInRaw = poolReserves.fromReserve * Math.pow(10, fromDecimals)
       const reserveOutRaw = poolReserves.toReserve * Math.pow(10, toDecimals)
       
-      const { amountOut, priceImpact } = v1.calculateSwapOutput(
+      const { amountOut, priceImpact, executionSlippage } = v1.calculateSwapOutput(
         amountInRaw,
         reserveInRaw,
         reserveOutRaw,
@@ -149,6 +217,7 @@ const Trade = () => {
       
       const amountOutDecimal = amountOut / Math.pow(10, toDecimals)
       setAmount('to', amountOutDecimal > 0 ? amountOutDecimal.toFixed(toDecimals) : '')
+      setExecSlippage(executionSlippage)
       setPriceImpact(priceImpact)
     } else if (lastEditedField === 'to' && swapAmounts.to) {
       const toAmount = parseFloat(swapAmounts.to)
@@ -166,34 +235,37 @@ const Trade = () => {
       setAmount('from', amountInDecimal > 0 ? amountInDecimal.toFixed(fromDecimals) : '')
       
       // Calculate price impact for this direction
-      const { priceImpact } = v1.calculateSwapOutput(
+      const { priceImpact, executionSlippage } = v1.calculateSwapOutput(
         amountInRaw,
         reserveInRaw,
         reserveOutRaw,
-        slippage
+        slippage,
       )
+      setExecSlippage(executionSlippage)
       setPriceImpact(priceImpact)
     }
   }, [swapAmounts.from, swapAmounts.to, poolReserves, slippage, lastEditedField, fromToken, toToken])
 
-  const handleTokenSelect = (position: 'from' | 'to') => {
+  // ============ EVENT HANDLERS ============
+  
+  const handleTokenSelect = useCallback((position: 'from' | 'to') => {
     setModalPosition(position)
     setIsModalOpen(true)
-  }
+  }, [])
 
-  const handleTokenSelected = (tokenHash: string) => {
+  const handleTokenSelected = useCallback((tokenHash: string) => {
     selectAsset(modalPosition, tokenHash)
     setIsModalOpen(false)
-  }
+  }, [modalPosition, selectAsset])
 
-  const handleAmountChange = (position: 'from' | 'to', value: string) => {
+  const handleAmountChange = useCallback((position: 'from' | 'to', value: string) => {
     setAmount(position, value)
     setLastEditedField(position)
-  }
+  }, [setAmount])
 
   const handleSwap = async () => {
     if (!isConnected) {
-      connectWallet()
+      openConnectModal()
       return
     }
 
@@ -216,40 +288,49 @@ const Trade = () => {
         slippage: slippage
       })
 
-      const txData = router.entries.createSwapTransaction({
-        contract: routerContract,
-        tokenInHash: selectedAssets.from,
-        tokenOutHash: selectedAssets.to,
-        amountIn: swapCalculation.amountIn,
-        amountOutMin: swapCalculation.amountOutMin
-      })
+      const txData = router?.invokeUnsafe('swap', {
+        token_in_hash: selectedAssets.from,
+        token_out_hash: selectedAssets.to,
+        amount_out_min: swapCalculation.amountOutMin,
+        deposits: {
+          [selectedAssets.from]: swapCalculation.amountIn
+        },
+        permission: "all",
+      })!
 
       const txBuilder = await buildTransaction(txData)
       console.log("Swap TX", txBuilder)
 
-      awaitContractInvocation(txBuilder.hash, routerContract, async (status, hash) => {
-        console.log(`Swap tx ${hash} completed with status: ${status}`)
-        setTxHash(hash)
+      awaitContractInvocation(txBuilder.hash, routerContract, {
+        successMessage: 'Swap successful!',
+        callback: async (status, hash) => {
+          console.log(`Swap tx ${hash} completed with status: ${status}`)
+          setTxHash(hash)
 
-        if (status === 'executed') {
-          if (isSwappingRef.current) {
-            setShowSuccess(true)
-            setAmount('to', '')
-            setAmount('from', '')
-            refreshPools()
-            setTimeout(() => {
-              refreshAssets()
-            }, 500)
+          if (status === 'executed') {
+            if (isSwappingRef.current) {
+              setShowSuccess(true)
+              setAmount('to', '')
+              setAmount('from', '')
+              refreshPools()
+              setTimeout(() => {
+                refreshAssets()
+              }, 500)
+            }
+          } else {
+            const errorMsg = status === 'reverted' ? 'Transaction reverted' : `Transaction ${status}`
+            setError(errorMsg)
           }
-        } else {
-          setError(`Transaction ${status}`)
-        }
 
-        setIsSubmitting(false)
-        isSwappingRef.current = false
+          isSwappingRef.current = false
+        }
       })
 
       await submitTransaction(txBuilder)
+
+      // Free up the button immediately after submission
+      setIsSubmitting(false)
+      showSubmitToast()
     } catch (err: any) {
       let cacheErrorMessage = ''
 
@@ -272,226 +353,101 @@ const Trade = () => {
     parseFloat(swapAmounts.from) > parseFloat(assets[fromToken?.hash || '']?.balance || '0') ||
     isSubmitting
 
+  // ============ BUNDLE PROPS FOR CHILD COMPONENTS ============
+  
+  const tradingViewProps: TradingViewProps = {
+    // Assets & Pool data
+    assets,
+    selectedAssets,
+    swapAmounts,
+    execSlippage,
+    slippage,
+    priceImpact,
+    loading,
+    error,
+    activePools,
+    poolAssets,
+    hasValidPool,
+    poolReserves,
+    
+    // Asset actions
+    selectAsset,
+    swapAssets,
+    setAmount,
+    setSlippage,
+    setExecSlippage,
+    setPriceImpact,
+    setLoading,
+    setError,
+    refreshAssets,
+    refreshPools,
+    
+    // Wallet
+    isConnected,
+    connecting,
+    openConnectModal,
+
+    // Swap logic
+    swapCalculation,
+    isSwapDisabled,
+    
+    // UI state
+    isSubmitting,
+    showSuccess,
+    txHash,
+    isProMode,
+
+    // Modal state & handlers
+    isModalOpen,
+    setIsModalOpen,
+    modalPosition,
+    handleTokenSelect,
+    handleTokenSelected,
+    handleAmountChange,
+    handleSwap,
+  }
+
+  // ============ RENDER ============
+  
   return (
     <>
-      <div className="flex justify-center items-center min-h-[75vh]">
-        <div className="background-transparent rounded-2xl p-5 w-full max-w-[475px]">
-          <GeometricAccents
-            accentWidth={19}
-            tipExtension={60}
-            tipAngle={50}
-            variant="white"
-            gap={7}
-            alpha={0.7}
-            glassEffect={true}
-            gradient={true}
-            gradientBurn={0.1}
-            blendMode='soft-light'
-            isLoading={isSubmitting}
-          >
-            {/* Header with slippage settings */}
-            <div className="flex items-center justify-between mb-1.5">
-              <h2 className="text-xl font-semibold text-white">Swap</h2>
-              <div className="flex items-center space-x-1">
-                <span className="text-forge-orange text-sm">Slippage: {slippage}%</span>
-                <SlippageSettings 
-                  slippage={slippage} 
-                  onSlippageChange={setSlippage} 
-                />
+      {/* Main Content */}
+      {isProMode ? (
+        <div className="fixed left-0 right-0 bottom-[1rem] top-20">
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading Pro Mode...</p>
               </div>
             </div>
-
-            {/* Success message */}
-            {showSuccess && (
-              <div className="bg-green-500/20 border border-green-500/50 text-green-400 px-3 py-2 rounded-lg mb-2 text-sm">
-                ✓ Swap successful!
-              </div>
-            )}
-
-            {/* Error message */}
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/50 text-red-400 px-3 py-2 rounded-lg mb-2 text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Token inputs with swap button */}
-            <div className="relative">
-              {/* From Token */}
-              <div className="mb-1.5">
-                <TokenInput 
-                  label="You Send"
-                  amount={swapAmounts.from}
-                  onChange={(value: string) => handleAmountChange('from', value)}
-                  tokenSymbol={fromToken?.ticker || 'Select'}
-                  tokenHash={fromToken?.hash}
-                  tokenName={fromToken?.name || ''}
-                  price={fromToken?.price}
-                  tickerWidth={5}
-                  onTokenSelect={() => handleTokenSelect('from')}
-                  showMaxHalf={true}
-                  decimals={fromToken?.decimals || 8}
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              {/* To Token */}
-              <div className="mt-1.5">
-                <TokenInput 
-                  label="You Receive"
-                  amount={swapAmounts.to}
-                  onChange={(value: string) => handleAmountChange('to', value)}
-                  tokenSymbol={toToken?.ticker || 'Select'}
-                  tokenName={toToken?.name || ''}
-                  tokenHash={toToken?.hash}
-                  price={toToken?.price}
-                  tickerWidth={5}
-                  onTokenSelect={() => handleTokenSelect('to')}
-                  disabled={isSubmitting}
-                  decimals={toToken?.decimals || 8}
-                />
-              </div>
-
-              {/* Circular Swap Button */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                <SwapButton
-                  onClick={() => {
-                    const newFrom = swapAmounts.to
-                    swapAssets(); 
-                    handleAmountChange('from', newFrom)
-                  }}
-                  loading={loading}
-                  disabled={!hasValidPool || isSubmitting}
-                />
-              </div>
-            </div>
-
-            {/* Price impact warning */}
-            {
-              hasValidPool && (<div className={`text-xs px-2 py-1 rounded-md mt-2 ${
-                priceImpact > 5 ? 'bg-red-500/20 text-red-400' : 
-                  priceImpact > Math.min(1, slippage) ? 'bg-yellow-500/20 text-yellow-400' : 
-                    priceImpact > 0 ? 'bg-green-500/20 text-green-400' : 'bg-black/60 text-white/50'
-                }`}>
-                Price Impact {priceImpact.toFixed(2)}% {priceImpact >= slippage ? `is too high! Increase Slippage % or lower ${fromToken?.symbol}` : ''}
-              </div>)
-            }
-
-            {/* No pool warning */}
-            {!hasValidPool && selectedAssets.from && selectedAssets.to && (
-              <div className="text-xs px-3 py-1 rounded-md mt-2 bg-red-500/20 text-red-400">
-                No liquidity pool available for this pair
-              </div>
-            )}
-
-            {/* Swap details */}
-            {hasValidPool && (
-              <div className="text-xs text-gray-400 mt-2 px-1">
-                <div className="flex justify-between">
-                  <span>Minimum received:</span>
-                  <span>
-                    {swapCalculation
-                      ? `${(swapCalculation.amountOutMin / Math.pow(10, toToken?.decimals || 8)).toFixed(4)} ${toToken?.symbol}`
-                      : `0.00 ${toToken?.symbol}`}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Spacing after inputs */}
-            <div className="mt-2"></div>
-
-            {/* Action Button */}
-            {isConnected ? (
-              <Button
-                onClick={handleSwap}
-                disabled={isSwapDisabled || parseFloat(swapAmounts.from) > parseFloat(assets[fromToken?.hash || ''].balance || '0')}
-                focusOnClick={false}
-                className="
-                  w-full 
-                  bg-forge-orange 
-                  hover:bg-forge-orange/90 
-                  disabled:bg-gray-600 
-                  text-white 
-                  font-light
-                  text-[1.5rem]
-                  py-1 px-4 
-                  rounded-xl 
-                  transition-all duration-200
-                  hover:shadow-lg
-                  hover:ring-2 ring-white
-                  hover:scale-[1.015]
-                  active:scale-[0.98]
-                  disabled:hover:scale-100
-                  disabled:hover:ring-0
-                "
-                isLoading={isSubmitting}
-                staticSize={true}
-              >
-                {isSubmitting ? 'Swapping...' : 
-                 !hasValidPool ? 'No Pool Available' :
-                 !swapAmounts.from ? 'Enter Amount' :
-                 parseFloat(swapAmounts.from) > parseFloat(assets[fromToken?.hash || ''].balance || '0') ? 'Insufficient Balance' :
-                 'Swap'}
-              </Button>
-            ) : (
-              <Button
-                onClick={connectWallet}
-                focusOnClick={false}
-                className="
-                  w-full 
-                  bg-white 
-                  text-black 
-                  font-light
-                  text-[1.5rem]
-                  py-1 px-4 
-                  rounded-xl 
-                  transition-all duration-200
-                  hover:shadow-lg
-                  hover:ring-2 ring-forge-orange
-                  hover:scale-[1.015]
-                  active:scale-[0.98]
-                "
-                isLoading={connecting}
-                staticSize={true}
-              >
-                Connect Wallet
-              </Button>
-            )}
-
-            <div className="mt-2"></div>
-            {/* Token Stats */}
-            <div className="grid grid-cols-2 gap-2">
-              <TokenStats 
-                symbol={fromToken?.ticker || "—"}
-                tokenHash={fromToken?.hash}
-                tokenName={fromToken?.name}
-                price="1.790"
-                priceChange="10.13"
-                color="bg-orange-500"
-              />
-              <TokenStats 
-                symbol={toToken?.ticker || "—"}
-                tokenHash={toToken?.hash}
-                tokenName={toToken?.name}
-                price="1.790"
-                priceChange="0.1"
-                color="bg-green-500"
-              />
-            </div>
-          </GeometricAccents>
+          }>
+            <ProTradingView {...tradingViewProps} />
+          </Suspense>
         </div>
-      </div>
+      ) : (
+        <SimpleTradingView {...tradingViewProps} />
+      )}
 
-      {/* Token Selection Modal */}
-      <TokenSelectModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSelect={handleTokenSelected}
-        currentToken={modalPosition === 'from' ? selectedAssets.from : selectedAssets.to}
-        otherToken={modalPosition === 'from' ? selectedAssets.to : selectedAssets.from}
-        position={modalPosition}
-      />
+      {/* Token Selection Modal - only render when open */}
+      {isModalOpen && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+            </div>
+          </div>
+        }>
+          <TokenSelectModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onSelect={handleTokenSelected}
+            currentToken={modalPosition === 'from' ? selectedAssets.from : selectedAssets.to}
+            otherToken={modalPosition === 'from' ? selectedAssets.to : selectedAssets.from}
+            position={modalPosition}
+          />
+        </Suspense>
+      )}
     </>
   )
 }

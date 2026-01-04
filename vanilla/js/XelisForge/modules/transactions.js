@@ -21,20 +21,20 @@ export async function createToken() {
     const params = {
         invoke_contract: {
             contract: contract,
-            max_gas: 200000000,
-            chunk_id: 2,
+            maxGas: 50000000,
+            entry_id: 2,
             deposits: {
                 "0000000000000000000000000000000000000000000000000000000000000000": {
                     "amount": 100000000
                 }
             },
             parameters: [
-                { type: "default", value: { type: "string", value: name } },
-                { type: "default", value: { type: "string", value: ticker } },
-                { type: "default", value: { type: "u64", value: supply } },
-                { type: "default", value: { type: "u8", value: decimals } },
-                { type: "default", value: { type: "boolean", value: mintable } },
-                { type: "default", value: { type: "u64", value: maxSupply } }
+                { type: "primitive", value: { type: "string", value: name } },
+                { type: "primitive", value: { type: "string", value: ticker } },
+                { type: "primitive", value: { type: "u64", value: supply } },
+                { type: "primitive", value: { type: "u8", value: decimals } },
+                { type: "primitive", value: { type: "boolean", value: mintable } },
+                { type: "primitive", value: { type: "u64", value: maxSupply } }
             ]
         },
         broadcast: true
@@ -55,11 +55,11 @@ export async function mintTokens() {
     const params = {
         invoke_contract: {
             contract: contract,
-            max_gas: 200000000,
-            chunk_id: 3,
+            maxGas: 50000000,
+            entry_id: 3,
             parameters: [
-                { type: "default", value: { type: "opaque", value: { type: "Hash", value: AssetHash } } },
-                { type: "default", value: { type: "u64", value: mintAmount } }
+                { type: "primitive", value: { type: "opaque", value: { type: "Hash", value: AssetHash } } },
+                { type: "primitive", value: { type: "u64", value: mintAmount } }
             ]
         },
         broadcast: true
@@ -89,11 +89,11 @@ async function transferOwnership() {
     const params = {
         invoke_contract: {
             contract: contract,
-            max_gas: 200000000,
-            chunk_id: 4,
+            maxGas: 50000000,
+            entry_id: 4,
             parameters: [
-                { type: "default", value: { type: "opaque", value: { type: "Hash", value: assetHash } } },
-                { type: "default", value: { type: "opaque", value: { type: "Address", value: address } } }
+                { type: "primitive", value: { type: "opaque", value: { type: "Hash", value: assetHash } } },
+                { type: "primitive", value: { type: "opaque", value: { type: "Address", value: address } } }
             ]
         },
         broadcast: true
@@ -113,10 +113,10 @@ async function renounceOwnership() {
     const params = {
         invoke_contract: {
             contract: contract,
-            max_gas: 200000000,
-            chunk_id: 5,
+            maxGas: 50000000,
+            entry_id: 5,
             parameters: [
-                { type: "default", value: { type: "opaque", value: { type: "Hash", value: assetHash } } }
+                { type: "primitive", value: { type: "opaque", value: { type: "Hash", value: assetHash } } }
             ]
         },
         broadcast: true
@@ -137,7 +137,7 @@ export async function deployContract() {
     const params = {
         deploy_contract: {
             module: bytecode,
-            ...(constructor && { invoke: { max_gas: 200000000 } })
+            ...(constructor && { invoke: { maxGas: 50000000 } })
         },
         broadcast: true
     };

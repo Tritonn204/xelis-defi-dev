@@ -69,7 +69,7 @@ const ResultScreen: React.FC<ResultScreenProps> = ({
             className="
               w-full 
               bg-transparent
-              border border-white/20
+              border-2 border-forge-orange/30
               hover:bg-white/10
               text-white 
               font-light

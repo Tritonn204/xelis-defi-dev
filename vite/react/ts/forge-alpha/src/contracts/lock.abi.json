@@ -1,0 +1,46 @@
+{
+  "data": [
+    {
+      "entry_id": 3,
+      "name": "lock_tokens",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "asset_hash",
+          "type": "Hash"
+        },
+        {
+          "name": "duration",
+          "type": "u64"
+        },
+        {
+          "name": "interval",
+          "type": "u64"
+        },
+        {
+          "name": "owner",
+          "type": "Address"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 4,
+      "name": "withdraw",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "lock_id",
+          "type": "Hash"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ],
+      "type": "entry"
+    }
+  ],
+  "internal_types": [],
+  "version": "1.1.1"
+}

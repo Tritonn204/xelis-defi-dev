@@ -1,0 +1,274 @@
+const MINIMUM_LIQUIDITY: u64 = 1000;
+
+struct LPAsset {
+    assetId: u64,
+    reserves: map<Hash, u64>
+}
+
+fn min(x: u64, y: u64) -> u64 {
+    if x < y {
+        return x;
+    } else { 
+        return y; 
+    }
+}
+
+fn xorBytes(a: bytes, b: bytes) -> bytes {
+    let result: bytes = bytes::new();
+    require(a.len() == b.len(), "bytesNotEqualLength");
+
+    for i: u32 = 0; i < a.len(); i += 1 {
+        result.push(a[i] ^ b[i]);
+    }
+
+    return result; 
+}
+
+fn xorHash(a: Hash, b: Hash) -> Hash {
+    return Hash::from_bytes(xorBytes(a.to_bytes(), b.to_bytes()));
+}
+
+fn newAssetId() -> u64 {
+    let storage: Storage = Storage::new();
+    let assetId: u64 = storage.load("lastAssetId").expect("missingLastAssetId");
+    assetId = assetId + 1;
+    storage.store("lastAssetId", assetId);
+    return assetId;
+}
+
+fn getPairAsset(tokenAHash: Hash, tokenBHash: Hash) -> optional<Hash> {
+    let storage: Storage = Storage::new();
+    let lpHash: optional<Hash> = storage.load(xorHash(tokenAHash, tokenBHash));
+    return lpHash;
+}
+
+fn charge(balance: u64, cost: u64, asset: optional<Hash>, payable: bool) -> u64 {
+    require(cost <= balance, "balanceTooLow");
+    
+    if (payable) {
+        let feeAddress: Address = Storage::new().load("feeAddress").expect("missingFeeAddress");
+        transfer(feeAddress, cost, asset.expect("noAssetProvidedForCharge"));   
+    }
+    
+    return balance - cost;
+}
+
+fn createPair(tokenAHash: Hash, tokenBHash: Hash, xel_balance: u64) -> (Hash, u64) {
+    let storage: Storage = Storage::new();
+    let assetId: u64 = newAssetId();
+    let tickerA: string = Asset::get_by_hash(tokenAHash).expect("tokenANotFound").get_ticker();
+    let tickerB: string = Asset::get_by_hash(tokenBHash).expect("tokenBNotFound").get_ticker();
+    let name: string = tickerA + " " + tickerB + " LP"; 
+    let ticker: string = "LP";
+    let decimals: u8 = 8; 
+    
+    let asset: optional<Asset> = Asset::create(assetId, name, ticker, decimals, null);
+    require(asset.is_some(), "assetNotCreated");
+    let asset: Asset = asset.expect("assetCreationFailed");
+    
+    let updated_balance: u64 = charge(xel_balance, 100000000, null, false);
+    
+    let lAsset: LPAsset = LPAsset { 
+        assetId: assetId, 
+        reserves: {tokenAHash: 0, tokenBHash: 0}
+    };
+    let lAssetHash: Hash = asset.get_hash();
+    storage.store(lAssetHash, lAsset);
+    storage.store(xorHash(tokenAHash, tokenBHash), lAssetHash);
+    
+    return (lAssetHash, updated_balance);
+}
+
+fn quote(amountA: u64, reserveA: u64, reserveB: u64) -> u64 {
+    require(amountA > 0, "insufficientAmount");
+    require(reserveA > 0 && reserveB > 0, "insufficientLiquidity");
+    let amountB: u64 = amountA * reserveB / reserveA;
+    return amountB;
+}
+
+fn calculateOptimalLiquidity(amountAIn: u64, amountBIn: u64, reserveA: u64, reserveB: u64, tokenA: Hash, tokenB: Hash) -> (u64, u64) {
+    let amountBOptimal: u64 = quote(amountAIn, reserveA, reserveB);
+    if amountBOptimal <= amountBIn {
+        if amountBOptimal < amountBIn {
+            transfer(Transaction::current().expect("noTransaction").source(), amountBIn - amountBOptimal, tokenB);
+        }
+        return (amountAIn, amountBOptimal);
+    } else {
+        let amountAOptimal: u64 = quote(amountBIn, reserveB, reserveA);
+        assert(amountAOptimal <= amountAIn);
+        if amountAOptimal < amountAIn {
+            transfer(Transaction::current().expect("noTransaction").source(), amountAIn - amountAOptimal, tokenA);
+        }
+        return (amountAOptimal, amountBIn);
+    }
+}
+
+fn getLiquidityAmounts(liquidityTokenHash: Hash, subtraction: u64) -> (u64, u64) {
+    let storage: Storage = Storage::new();
+    let lAsset: LPAsset = storage.load(liquidityTokenHash).expect("lpAssetNotFound");
+    let tokenHashes: Hash[] = lAsset.reserves.keys();
+    let tokenA: Hash = tokenHashes[0];
+    let tokenB: Hash = tokenHashes[1];
+    let amountAIn: u64 = get_deposit_for_asset(tokenA).expect("noTokenADeposit");
+    let amountBIn: u64 = get_deposit_for_asset(tokenB).expect("noTokenBDeposit");
+    
+    if tokenA == Hash::zero() {
+        amountAIn -= subtraction;
+    } else if tokenB == Hash::zero() {
+        amountBIn -= subtraction;
+    }
+
+    let reserveA: u64 = lAsset.reserves.get(tokenA).expect("noReserveA");
+    let reserveB: u64 = lAsset.reserves.get(tokenB).expect("noReserveB");
+
+    if (reserveA == 0 && reserveB == 0) {
+        return (amountAIn, amountBIn);
+    } else {
+        return calculateOptimalLiquidity(amountAIn, amountBIn, reserveA, reserveB, tokenA, tokenB);
+    }
+}
+
+fn calculateLiquidity(amountA: u64, amountB: u64, lTotalSupply: u64, lReserveA: u64, lReserveB: u64, liquidityTokenHash: Hash) -> u64 {
+    if lTotalSupply == 0 {
+        Asset::get_by_hash(liquidityTokenHash).expect("noAsset").mint(MINIMUM_LIQUIDITY);
+        let liquidity: u64 = (((amountA as u128) * (amountB as u128)).sqrt() as u64) - (MINIMUM_LIQUIDITY)
+        return liquidity;
+    } else {
+        return min(
+            (((amountA as u128) * (lTotalSupply as u128) / (lReserveA as u128)) as u64), 
+            (((amountB as u128) * (lTotalSupply as u128) / (lReserveB as u128)) as u64)
+        );
+    }
+}
+
+fn mintLiquidity(amountA: u64, amountB: u64, liquidityTokenHash: Hash) {
+    let storage: Storage = Storage::new();
+    let asset: Asset = Asset::get_by_hash(liquidityTokenHash).expect("noAsset");
+    let lTotalSupply: u64 = asset.get_supply();
+    let lAsset: LPAsset = storage.load(liquidityTokenHash).expect("noLPAsset");
+    let tokenHashes: Hash[] = lAsset.reserves.keys();
+    let tokenA: Hash = tokenHashes[0];
+    let tokenB: Hash = tokenHashes[1];
+
+    let lReserveA: u64 = lAsset.reserves.get(tokenA).expect("missingReserveA");
+    let lReserveB: u64 = lAsset.reserves.get(tokenB).expect("missingReserveB");
+    
+    let liquidity: u64 = calculateLiquidity(amountA, amountB, lTotalSupply, lReserveA, lReserveB, liquidityTokenHash);
+    require(liquidity > 0, "insufficientLiquidityMinted");
+    
+    asset.mint(liquidity);
+    transfer(Transaction::current().expect("noTransaction").source(), liquidity, liquidityTokenHash);
+
+    lReserveA = lReserveA + amountA;
+    lReserveB = lReserveB + amountB;
+    lAsset.reserves = {tokenA: lReserveA, tokenB: lReserveB};
+    fire_event(1, lAsset.reserves);
+    storage.store(liquidityTokenHash, lAsset);
+}
+
+fn calculateSwapOutput(amountIn: u64, lReserveIn: u64, lReserveOut: u64, tokenInHash: Hash) -> u64 {
+    let amountInWithDevFee: u128 = (amountIn as u128) * (9997) / (10000);
+    let devFee: u64 = amountIn - amountInWithDevFee as u64;
+    let storage: Storage = Storage::new();
+    let feeAddress: Address = storage.load("feeAddress").expect("missingFeeAddress");
+    transfer(feeAddress, devFee, tokenInHash);
+
+    let amountInWithLPFee: u128 = amountInWithDevFee * (9978);
+    let numerator: u128 = amountInWithLPFee * (lReserveOut as u128);
+    let denominator: u128 = (lReserveIn as u128) * (10000) + (amountInWithLPFee);
+
+    require(denominator > 0, "divisionByZero");
+    return (numerator / denominator) as u64;
+}
+
+entry addLiquidity(token0Hash: Hash, token1Hash: Hash) {
+    require(token0Hash != token1Hash, "duplicateTokenInput");
+
+    let PROTO_FEE: u64 = 100000000;
+
+    let xelis: Hash = Hash::zero();
+    let xel_balance: u64 = get_deposit_for_asset(xelis).expect("missingXelDeposit");
+
+    let liquidityTokenOptional: optional<Hash> = getPairAsset(token0Hash, token1Hash);
+    let liquidityTokenHash: Hash = Hash::zero();
+    if liquidityTokenOptional.is_none() {
+        require(xel_balance >= PROTO_FEE, "insufficientXelForPairCreation");
+        let result: (Hash, u64) = createPair(token0Hash, token1Hash, xel_balance);
+        liquidityTokenHash = result.0;
+        debug(liquidityTokenHash);
+        xel_balance = result.1;
+    } else {
+        liquidityTokenHash = liquidityTokenOptional.expect("pairNotFound");
+    }
+    let (amountA, amountB): (u64, u64) = getLiquidityAmounts(liquidityTokenHash, PROTO_FEE);
+    mintLiquidity(amountA, amountB, liquidityTokenHash);
+    
+    return 0;
+}
+
+entry removeLiquidity(liquidityTokenHash: Hash) {
+    let storage: Storage = Storage::new();
+    let liquidity: u64 = get_deposit_for_asset(liquidityTokenHash).expect("noDeposit");
+    let lTotalSupply: u64 = Asset::get_by_hash(liquidityTokenHash).expect("noAsset").get_supply();
+
+    let lAsset: LPAsset = storage.load(liquidityTokenHash).expect("noLPAsset");
+    let tokenHashes: Hash[] = lAsset.reserves.keys();
+    let tokenA: Hash = tokenHashes[0];
+    let tokenB: Hash = tokenHashes[1];
+
+    let lReserveA: u64 = lAsset.reserves.get(tokenA).expect("noReserveA");
+    let lReserveB: u64 = lAsset.reserves.get(tokenB).expect("noReserveB");
+
+    let amountA: u64 = ((liquidity as u128) * (lReserveA as u128) / lTotalSupply as u128) as u64;
+    let amountB: u64 = ((liquidity as u128) * (lReserveB as u128) / lTotalSupply as u128) as u64;
+
+    require(amountA > 0 && amountB > 0, "insufficientLiquidityBurned");
+    
+    burn(liquidity, liquidityTokenHash);
+
+    lReserveA = lReserveA - amountA;
+    lReserveB = lReserveB - amountB;
+    lAsset.reserves = {tokenA: lReserveA, tokenB: lReserveB};
+    storage.store(liquidityTokenHash, lAsset);
+
+    let source: Address = Transaction::current().expect("noTransaction").source();
+    transfer(source, amountA, tokenA);
+    transfer(source, amountB, tokenB);
+    fire_event(1, lAsset.reserves);
+    return 0;
+}
+
+entry swap(tokenInHash: Hash, tokenOutHash: Hash, amountOutMin: u64) {
+    let amountIn: u64 = get_deposit_for_asset(tokenInHash).expect("noDeposit");
+    require(amountIn > 0, "noDeposit");
+    
+    let storage: Storage = Storage::new();
+    let lAssetHash: Hash = getPairAsset(tokenInHash, tokenOutHash).expect("noPairFound");
+    let lAsset: LPAsset = storage.load(lAssetHash).expect("noLPAsset");
+    let lReserveIn: u64 = lAsset.reserves.get(tokenInHash).expect("noReserveIn");
+    let lReserveOut: u64 = lAsset.reserves.get(tokenOutHash).expect("noReserveOut");
+    
+    let amountOut: u64 = calculateSwapOutput(amountIn, lReserveIn, lReserveOut, tokenInHash);
+
+    require(amountOut >= amountOutMin, "slippageExceeded");
+    require(amountOut > 0, "insufficientOutputAmount");
+    require(amountOut < lReserveOut, "insufficientLiquidity");
+
+    lReserveIn = lReserveIn + amountIn;
+    lReserveOut = lReserveOut - amountOut;
+    lAsset.reserves = {tokenInHash: lReserveIn, tokenOutHash: lReserveOut};
+    fire_event(1, lAsset.reserves);
+    storage.store(lAssetHash, lAsset);
+
+    transfer(Transaction::current().expect("noTransaction").source(), amountOut, tokenOutHash);
+    return 0;
+}
+
+hook constructor() -> u64 {
+    let storage: Storage = Storage::new();
+    storage.store("lastAssetId", 0);
+    let source: Address = Transaction::current().expect("noTransaction").source();
+    storage.store("owner", source);
+    storage.store("feeAddress", source);
+    return 0;
+}

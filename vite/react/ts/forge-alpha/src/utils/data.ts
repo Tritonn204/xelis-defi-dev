@@ -1,3 +1,5 @@
+import { isBusinessDay, Time } from "lightweight-charts";
+
 // Base types for the nested structure
 export interface TypedValue<T = any> {
   type: string;
@@ -294,4 +296,23 @@ export function createTransformer<T extends Record<string, any>>(options?: { pre
     
     return parsed;
   };
+}
+
+export function timeToMilliseconds(t: Time): number {
+  if (typeof t === 'number') {
+    // UTCTimestamp = seconds
+    return t * 1000;
+  }
+
+  if (typeof t === 'string') {
+    // ISO or date string
+    return new Date(t).getTime();
+  }
+
+  if (isBusinessDay(t)) {
+    // BusinessDay -> UTC timestamp in ms
+    return Date.UTC(t.year, t.month - 1, t.day);
+  }
+
+  throw new Error('Unknown Time type');
 }

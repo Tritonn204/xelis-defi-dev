@@ -41,7 +41,7 @@ export const TokenIcon = ({
         />
       ) : (
         <div
-          className="absolute top-0 left-0 flex items-center justify-center text-white font-bold z-0"
+          className="absolute top-0 left-0 flex items-center justify-center text-white select-none font-bold z-0"
           style={{
             backgroundColor: tokenColor,
             width: size,

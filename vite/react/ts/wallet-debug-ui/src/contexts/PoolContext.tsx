@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNode, NATIVE_ASSET_HASH } from '@/contexts/NodeContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { type Asset } from '@/contexts/AssetContext';
-import Decimal from 'decimal.js';
-import { vmParam } from '@/utils/xvmSerializer';
+import Big from 'big.js';
+import { VMParam } from '@/utils/xvmSerializer';
 import { genericTransformer } from '@/utils/types';
 import { getForgeMetaForAssets } from '@/utils/getForgeMeta';
 
@@ -98,7 +98,7 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
       for (const id of assetList) {
         if (id === NATIVE_ASSET_HASH) continue;
         try {
-          const data = await getContractData({ contract: routerContract, key: vmParam.hash(id) });
+          const data = await getContractData({ contract: routerContract, key: VMParam.hash(id) });
           if (data?.data?.type === 'object' && data.data.value[1]?.type === 'map') {
             const lpMap = data.data.value[1].value;
             Object.keys(lpMap).forEach(hash => tokenHashes.add(hash));
@@ -122,7 +122,7 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           data = await getContractData({
             contract: routerContract,
-            key: vmParam.hash(id),
+            key: VMParam.hash(id),
           });
         } catch(err: any) {
           continue;
@@ -183,7 +183,7 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (isConnected) {
             try {
               userLp = BigInt(await getRawBalance(id));
-              userShare = new Decimal(userLp.toString()).div(lpTotal.toString()).mul(100).toFixed(3).toString();
+              userShare = new Big(userLp.toString()).div(lpTotal.toString()).mul(100).toFixed(3).toString();
             } catch (err) {
               console.error('Error getting user LP balance:', err);
             }

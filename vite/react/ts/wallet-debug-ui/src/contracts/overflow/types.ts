@@ -6,7 +6,7 @@
  *   contract: (hex)"123...",
  *   asset: (hex)"abc...",
  *   amount: 1000000000,
- *   maxGas: 200000000
+ *   maxGas: 50000000
  * };
  * ```
  */
@@ -32,7 +32,7 @@ export interface DepositParams {
   
   /** 
    * Maximum gas units to allocate for the transaction
-   * @default 200000000
+   * @default 50000000
    * @minimum 1000000
    */
   maxGas?: number;

@@ -1,4 +1,4 @@
-import { vmParam } from '@/utils/xvmSerializer';
+import { VMParam } from '@/utils/xvmSerializer';
 import { genericTransformer } from '@/utils/types';
 
 export async function getForgeMetaForAssets(
@@ -12,7 +12,7 @@ export async function getForgeMetaForAssets(
     try {
       const raw = await getContractData({
         contract: factoryContract,
-        key: vmParam.hash(hash),
+        key: VMParam.hash(hash),
       });
 
       const data = genericTransformer(raw)?.data?.value;

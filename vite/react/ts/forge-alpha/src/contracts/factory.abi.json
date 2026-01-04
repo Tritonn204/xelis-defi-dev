@@ -1,0 +1,152 @@
+{
+  "data": [
+    {
+      "entry_id": 8,
+      "name": "deploy_asset",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "ticker",
+          "type": "string"
+        },
+        {
+          "name": "decimals",
+          "type": "u8"
+        },
+        {
+          "name": "supply",
+          "type": "u64"
+        },
+        {
+          "internal_type": "MaxSupplyMode",
+          "name": "max_supply_mode",
+          "type": "enum"
+        },
+        {
+          "name": "icon",
+          "type": "string"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 9,
+      "name": "mint",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "asset_hash",
+          "type": "Hash"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 10,
+      "name": "transfer_ownership",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "asset_hash",
+          "type": "Hash"
+        },
+        {
+          "name": "new_owner",
+          "type": "Address"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 11,
+      "name": "renounce_ownership",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "asset_hash",
+          "type": "Hash"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 12,
+      "name": "set_icon",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "asset_hash",
+          "type": "Hash"
+        },
+        {
+          "name": "new_icon",
+          "type": "string"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 13,
+      "name": "set_fee",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "new_fee",
+          "type": "u64"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 14,
+      "name": "set_dao_contract",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "dao_hash",
+          "type": "Hash"
+        }
+      ],
+      "type": "entry"
+    }
+  ],
+  "internal_types": [
+    {
+      "kind": "enum",
+      "name": "MaxSupplyMode",
+      "variants": [
+        {
+          "fields": [],
+          "name": "None"
+        },
+        {
+          "fields": [
+            {
+              "name": "max_supply",
+              "type": "u64"
+            }
+          ],
+          "name": "Fixed"
+        },
+        {
+          "fields": [
+            {
+              "name": "max_supply",
+              "type": "u64"
+            }
+          ],
+          "name": "Mintable"
+        }
+      ]
+    }
+  ],
+  "version": "1.1.1"
+}

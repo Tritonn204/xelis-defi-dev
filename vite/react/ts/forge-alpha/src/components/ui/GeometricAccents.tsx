@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, memo } from 'react'
 
 const GeometricAccents = ({ 
   children, 
@@ -11,7 +11,7 @@ const GeometricAccents = ({
   alpha = 1.0,
   glassEffect = false,
   gradient = false,
-  gradientBurn = 0.3,
+  gradientBurn = 0.15,
   blendMode = 'normal' as any,
   isLoading = false
 }) => {
@@ -165,4 +165,4 @@ const GeometricAccents = ({
   )
 }
 
-export default GeometricAccents
+export default memo(GeometricAccents);

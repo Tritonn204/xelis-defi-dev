@@ -1,0 +1,1 @@
+docker buildx build -f packages/forge-api/Dockerfile -t tritonn204/forge-api:dev .

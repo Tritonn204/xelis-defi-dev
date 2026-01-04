@@ -1,5 +1,5 @@
 import { NATIVE_ASSET_HASH } from '@/constants';
-import { vmParam, createContractInvocation, createContractDeployment, createDeposits } from '@/utils/xvmSerializer';
+import { VMParam, createContractInvocation, createContractDeployment, createDeposits } from '@/utils/xvmSerializer';
 import type * as types from './types';
 
 /**
@@ -16,7 +16,7 @@ export const createTokenTransaction = (params: types.CreateTokenParams): Record<
     supply, 
     mintable, 
     maxSupply, 
-    maxGas = 200000000,
+    maxGas = 50000000,
     icon = ""
   } = params;
 
@@ -25,15 +25,15 @@ export const createTokenTransaction = (params: types.CreateTokenParams): Record<
 
   return createContractInvocation({
     contract,
-    chunkId: 9,
+    entryId: 9,
     parameters: [
-      vmParam.string(name),
-      vmParam.string(ticker),
-      vmParam.u64(adjustedSupply),
-      vmParam.u8(decimals),
-      vmParam.boolean(mintable),
-      vmParam.u64(adjustedMaxSupply),
-      vmParam.string(icon)
+      VMParam.string(name),
+      VMParam.string(ticker),
+      VMParam.u64(adjustedSupply),
+      VMParam.u8(decimals),
+      VMParam.boolean(mintable),
+      VMParam.u64(adjustedMaxSupply),
+      VMParam.string(icon)
     ],
     deposits: {
       [NATIVE_ASSET_HASH]: 100000000
@@ -48,14 +48,14 @@ export const createTokenTransaction = (params: types.CreateTokenParams): Record<
  * @returns Transaction data object
  */
 export const createMintTokensTransaction = (params: types.MintTokensParams): Record<string, any> => {
-  const { contract, assetHash, mintAmount, maxGas = 200000000 } = params;
+  const { contract, assetHash, mintAmount, maxGas = 50000000 } = params;
 
   return createContractInvocation({
     contract,
-    chunkId: 10,
+    entryId: 10,
     parameters: [
-      vmParam.hash(assetHash),
-      vmParam.u64(mintAmount)
+      VMParam.hash(assetHash),
+      VMParam.u64(mintAmount)
     ],
     maxGas
   });
@@ -67,14 +67,14 @@ export const createMintTokensTransaction = (params: types.MintTokensParams): Rec
  * @returns Transaction data object
  */
 export const createTransferOwnershipTransaction = (params: types.TransferOwnershipParams): Record<string, any> => {
-  const { contract, assetHash, ownerAddress, maxGas = 200000000 } = params;
+  const { contract, assetHash, ownerAddress, maxGas = 50000000 } = params;
 
   return createContractInvocation({
     contract,
-    chunkId: 11,
+    entryId: 11,
     parameters: [
-      vmParam.hash(assetHash),
-      vmParam.address(ownerAddress)
+      VMParam.hash(assetHash),
+      VMParam.address(ownerAddress)
     ],
     maxGas
   });
@@ -86,13 +86,13 @@ export const createTransferOwnershipTransaction = (params: types.TransferOwnersh
  * @returns Transaction data object
  */
 export const createRenounceOwnershipTransaction = (params: types.RenounceOwnershipParams): Record<string, any> => {
-  const { contract, assetHash, maxGas = 200000000 } = params;
+  const { contract, assetHash, maxGas = 50000000 } = params;
 
   return createContractInvocation({
     contract,
-    chunkId: 12,
+    entryId: 12,
     parameters: [
-      vmParam.hash(assetHash)
+      VMParam.hash(assetHash)
     ],
     maxGas
   });
@@ -104,7 +104,7 @@ export const createRenounceOwnershipTransaction = (params: types.RenounceOwnersh
  * @returns Transaction data object
  */
 export const createDeployContractTransaction = (params: types.DeployContractParams): Record<string, any> => {
-  const { bytecode, hasConstructor = false, maxGas = 200000000 } = params;
+  const { bytecode, hasConstructor = false, maxGas = 50000000 } = params;
 
   return createContractDeployment({
     bytecode,

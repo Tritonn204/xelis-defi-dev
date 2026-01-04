@@ -80,7 +80,7 @@ export type ValidationType = keyof typeof TYPE_VALIDATORS;
  * @param type - The type string (e.g., 'u64', 'Hash', 'string')
  * @param validate - Whether to validate and convert the value (default: true)
  */
-export function createVMParameter(
+export function createVMPrimitive(
   value: any, 
   type: ValidationType, 
   validate: boolean = true
@@ -99,7 +99,7 @@ export function createVMParameter(
   // Handle opaque types (Hash, Address, PublicKey)
   if (OPAQUE_TYPES.has(type)) {
     return {
-      type: "default",
+      type: "primitive",
       value: {
         type: "opaque",
         value: {
@@ -112,7 +112,7 @@ export function createVMParameter(
   
   // Handle regular types
   return {
-    type: "default",
+    type: "primitive",
     value: {
       type: type,
       value: processedValue
@@ -123,17 +123,17 @@ export function createVMParameter(
 /**
  * Convenience functions for common types
  */
-export const vmParam = {
-  hash: (value: string) => createVMParameter(value, 'Hash'),
-  address: (value: string) => createVMParameter(value, 'Address'),
-  publicKey: (value: string) => createVMParameter(value, 'PublicKey'),
-  blob: (value: string) => createVMParameter(value, 'Blob'),
-  u64: (value: number | bigint) => createVMParameter(value, 'u64'),
-  u32: (value: number) => createVMParameter(value, 'u32'),
-  u16: (value: number) => createVMParameter(value, 'u16'),
-  u8: (value: number) => createVMParameter(value, 'u8'),
-  string: (value: string) => createVMParameter(value, 'string'),
-  boolean: (value: boolean) => createVMParameter(value, 'boolean'),
+export const VMParam = {
+  hash: (value: string) => createVMPrimitive(value, 'Hash'),
+  address: (value: string) => createVMPrimitive(value, 'Address'),
+  publicKey: (value: string) => createVMPrimitive(value, 'PublicKey'),
+  blob: (value: string) => createVMPrimitive(value, 'Blob'),
+  u64: (value: number | bigint) => createVMPrimitive(value, 'u64'),
+  u32: (value: number) => createVMPrimitive(value, 'u32'),
+  u16: (value: number) => createVMPrimitive(value, 'u16'),
+  u8: (value: number) => createVMPrimitive(value, 'u8'),
+  string: (value: string) => createVMPrimitive(value, 'string'),
+  boolean: (value: boolean) => createVMPrimitive(value, 'boolean'),
 };
 
 /**
@@ -160,7 +160,7 @@ export function createDeposits(deposits: Record<string, number | bigint>): Recor
  */
 export interface ContractInvocationParams {
   contract: string;
-  chunkId: number;
+  entryId: number;
   parameters?: VMParameter[];
   deposits?: Record<string, number | bigint>;
   maxGas?: number;
@@ -169,17 +169,17 @@ export interface ContractInvocationParams {
 export function createContractInvocation(params: ContractInvocationParams): Record<string, any> {
   const {
     contract,
-    chunkId,
+    entryId,
     parameters = [],
     deposits,
-    maxGas = 200000000
+    maxGas = 50000000
   } = params;
   
   const result: any = {
     invoke_contract: {
       contract,
-      max_gas: maxGas,
-      chunk_id: chunkId,
+      maxGas: maxGas,
+      entry_id: entryId,
       parameters
     }
   };
@@ -201,12 +201,12 @@ export interface ContractDeploymentParams {
 }
 
 export function createContractDeployment(params: ContractDeploymentParams): Record<string, any> {
-  const { bytecode, hasConstructor = false, maxGas = 200000000 } = params;
+  const { bytecode, hasConstructor = false, maxGas = 50000000 } = params;
   
   const result: any = {
     deploy_contract: {
       module: bytecode,
-      ...(hasConstructor && { invoke: { max_gas: maxGas } })
+      ...(hasConstructor && { invoke: { maxGas: maxGas } })
     }
   };
   

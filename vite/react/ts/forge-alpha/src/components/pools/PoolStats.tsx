@@ -8,7 +8,7 @@ const PoolStats = ({
   fees24h = '' 
 }) => {
   return (
-    <div className="bg-black/70 rounded-xl p-3 border border-white/12">
+    <div className="bg-black/70 rounded-xl p-3 border border-forge-orange/30">
       <div className="flex justify-between items-center mb-2">
         <div className="text-white font-medium">{symbol1}/{symbol2}</div>
         <div className="text-gray-400 text-sm">Pool Stats</div>

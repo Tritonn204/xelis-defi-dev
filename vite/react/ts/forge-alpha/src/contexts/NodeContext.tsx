@@ -1,16 +1,20 @@
-import { createContext, useContext, useReducer, useEffect, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useReducer, useEffect, useState, useRef, type ReactNode } from 'react'
 import { TESTNET_NODE_WS, MAINNET_NODE_WS } from '@xelis/sdk/config'
 import DaemonWS from '@xelis/sdk/daemon/websocket'
 import * as types from '@xelis/sdk/daemon/types'
 
 import { genericTransformer, responseTransformers} from '../utils/types'
 import { AppTxError } from '@/types/errors'
+import { fetchContractAddresses, type ContractAddresses } from '@/utils/contractConfig'
 
-type NetworkType = 'mainnet' | 'testnet' | 'custom'
+type NetworkType = 'mainnet' | 'testnet' | 'stagenet' | 'custom'
 
 interface NodeConfig {
   url: string
   name: string
+  contractAddresses?: {
+    [key: string]: string // e.g., { "router": "xel1...", "factory": "xel1..." }
+  }
 }
 
 interface NetworkConfig {
@@ -37,12 +41,15 @@ export interface CustomNetworkConfig {
   }
 }
 // Static node configuration
-const NETWORK_NODES: NetworkConfig = {
+export const NETWORK_NODES: NetworkConfig = {
   mainnet: [
     { url: MAINNET_NODE_WS, name: 'Official Mainnet' }
   ],
   testnet: [
     { url: TESTNET_NODE_WS, name: 'Official Testnet' }
+  ],
+  stagenet: [
+    { url: TESTNET_NODE_WS, name: 'Official Stagenet' }
   ],
   custom: 'custom'
 }
@@ -80,7 +87,7 @@ interface NodeContextType extends NodeState {
   
   // Block queries
   getBlockByHash: (params: types.GetBlockByHashParams) => Promise<types.Block>
-  getBlockAtTopoheight: (params: types.GetBlockAtTopoheightParams) => Promise<types.Block>
+  getBlockAtTopoheight: (params: types.GetBlockAtTopoHeightParams) => Promise<types.Block>
   getTopBlock: (params?: types.GetTopBlockParams) => Promise<types.Block>
   
   // Transaction queries
@@ -91,7 +98,7 @@ interface NodeContextType extends NodeState {
   
   // Account queries
   getBalance: (params: types.GetBalanceParams) => Promise<types.GetBalanceResult>
-  getAccountHistory: (params: types.GetAccountHistoryParams) => Promise<types.AccounHistory[]>
+  getAccountHistory: (params: types.GetAccountHistoryParams) => Promise<types.AccountHistory[]>
   getAccountAssets: (address: string) => Promise<string[]>
   
   // Asset queries
@@ -99,12 +106,13 @@ interface NodeContextType extends NodeState {
   getAssetSupply: (params: types.GetAssetParams) => Promise<any>
   getAssets: (params?: types.GetAssetsParams) => Promise<string[]>
   getContractOutputs: (params: any) => Promise<any>
-  
+
   // Smart contract queries
-  getContractData: (params: types.GetContractDataPrams) => Promise<types.GetContractDataResult>
+  getContractData: (params: types.GetContractDataParams) => Promise<types.GetContractDataResult>
   getContractBalance: (params: types.GetContractBalanceParams) => Promise<types.GetContractBalanceResult>
   getContractModule: (params: types.GetContractModuleParams) => Promise<types.GetContractModuleResult>
   getContractAssets: (contract: string) => Promise<string[]>
+  getContractLogs: (params: types.GetContractLogsParams) => Promise<types.ContractLog[]>
   
   // Utility
   validateAddress: (params: types.ValidateAddressParams) => Promise<types.ValidateAddressResult>
@@ -203,12 +211,30 @@ const nodeReducer = (state: NodeState, action: NodeAction): NodeState => {
 export const NodeProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(nodeReducer, initialState)
   const daemonRef = useRef<DaemonWS | null>(null)
-  const eventCallbacksRef = useRef<Map<string, (data: any) => void>>(new Map())
+  const eventCallbacksRef = useRef<Map<string, (data: any, err: any) => void>>(new Map())
   const reconnectTimeoutRef = useRef<number | null>(null)
   const customNetworksRef = useRef<Map<string, CustomNetworkConfig>>(new Map())
   const recentBlocksRef = useRef<types.Block[]>([])
   const txWatchQueueRef = useRef<Map<string, (result: TxWatchResult) => void>>(new Map())
   const stableHeightRef = useRef<BigInt>(0n)
+  const [contractAddresses, setContractAddresses] = useState<ContractAddresses>({})
+  const contractAddressesRef = useRef<ContractAddresses>({})
+  const [addressesFetched, setAddressesFetched] = useState(false)
+
+  // Fetch contract addresses from API on mount
+  useEffect(() => {
+    fetchContractAddresses()
+      .then((addresses) => {
+        contractAddressesRef.current = addresses
+        setContractAddresses(addresses)
+        setAddressesFetched(true)
+      })
+      .catch((error) => {
+        console.error('Failed to fetch contract addresses:', error)
+        setAddressesFetched(true) // Mark as fetched even on error so we don't block forever
+      })
+  }, [])
+
 
   // Macro-like method wrapper with proper TypeScript generics
   const createRPCMethodWrapper = <TReturn, TParams extends any[] = []>(
@@ -249,7 +275,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
 
   const connectToNetwork = async (network: NetworkType) => {
     dispatch({ type: 'CONNECT_START' })
-    
+
     try {
       // Handle custom networks separately
       if (network === 'custom') {
@@ -262,12 +288,48 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Try to connect to the first available node
-      const node = nodes[0]
-      const daemon = new DaemonWS()
-      
-      // Connect to WebSocket
-      await daemon.connect(node.url)
-      
+      let node = nodes[0]
+
+      // Add dynamically fetched contract addresses for mainnet/testnet
+      // Use ref to get the latest addresses, not state which might be stale
+      if (network === 'mainnet' || network === 'testnet') {
+        const fetchedAddresses = contractAddressesRef.current[network]
+        if (fetchedAddresses) {
+          node = {
+            ...node,
+            contractAddresses: fetchedAddresses
+          }
+        }
+      }
+
+      const daemon = new DaemonWS(node.url)
+
+      // Barrier: Wait for socket to open before proceeding
+      await new Promise<void>((resolve, reject) => {
+        const socket = daemon.socket
+
+        // If already open, resolve immediately
+        if (socket.readyState === WebSocket.OPEN) {
+          resolve()
+          return
+        }
+
+        const timeout = setTimeout(() => {
+          reject(new Error('Connection timeout'))
+        }, 10000)
+
+        socket.addEventListener('open', () => {
+          clearTimeout(timeout)
+          resolve()
+        }, { once: true })
+
+        socket.addEventListener('error', (error) => {
+          clearTimeout(timeout)
+          reject(error)
+        }, { once: true })
+      })
+
+      // Now socket is open - proceed with normal flow
       // Test connection by getting network info
       const networkInfo = await daemon.methods.getInfo()
       
@@ -297,7 +359,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
 
     // Disconnect current connection
     if (daemonRef.current) {
-      await daemonRef.current.close()
+      daemonRef.current.socket.close()
     }
 
     // Connect to new node
@@ -334,7 +396,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     
     if (daemonRef.current) {
       try {
-        await daemonRef.current.close()
+        daemonRef.current.socket.close()
       } catch (error) {
         console.error('Error disconnecting:', error)
       }
@@ -366,27 +428,30 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
-  const subscribeToNodeEvent = (event: types.RPCEvent, callback: (data: any) => void) => {
+  const subscribeToNodeEvent = (event: types.RPCEvent, callback: (data: any, err: any) => void) => {
     if (!daemonRef.current) {
-      console.warn('Cannot subscribe to event: not connected')
+      console.warn('[EVENT_SUB] Cannot subscribe to event: not connected')
       return
     }
 
     eventCallbacksRef.current.set(event, callback)
-    daemonRef.current.methods.ws.listenEvent(event, callback)
-    console.log("subscribed to", event)
+    daemonRef.current.methods.addListener(event, null, callback)
     dispatch({ type: 'EVENT_SUBSCRIBED', payload: event })
   }
 
   const unsubscribeFromNodeEvent = (event: types.RPCEvent) => {
-    if (!daemonRef.current) return
+    if (!daemonRef.current) {
+      console.warn(`[EVENT_SUB] Cannot unsubscribe from ${event}: not connected`)
+      return
+    }
 
     const callback = eventCallbacksRef.current.get(event)
     if (callback) {
-      daemonRef.current.methods.ws.closeAllListens(event).then(() => {
-        eventCallbacksRef.current.delete(event)
-        dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
-      })
+      daemonRef.current.methods.removeListener(event, null, callback)
+      eventCallbacksRef.current.delete(event)
+      dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
+    } else {
+      console.warn(`[EVENT_SUB] No callback found for event: ${event}`)
     }
   }
 
@@ -441,24 +506,26 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     const res = await daemonRef.current!.dataCall("get_contract_outputs", params)
     return res
   }
+  const getContractLogs = async (params: types.GetContractLogsParams) => {
+    const res = await daemonRef.current!.dataCall("get_contract_logs", params) as types.ContractLog[]
+    return res
+  }
 
   // Utility
   const validateAddress = createRPCMethodWrapper<types.ValidateAddressResult, [types.ValidateAddressParams]>('validateAddress')
 
 
-  // Auto-connect on mount
+  // Auto-connect on mount - wait for addresses to be fetched first
   useEffect(() => {
+    if (!addressesFetched) return;
+
     const savedNetwork = localStorage.getItem('selectedNetwork') as NetworkType
     if (savedNetwork && NETWORK_NODES[savedNetwork]) {
       connectToNetwork(savedNetwork)
     } else {
       connectToNetwork('testnet') // Default to testnet
     }
-
-    return () => {
-      disconnect()
-    }
-  }, [])
+  }, [addressesFetched])
 
   // Save selected network to localStorage
   useEffect(() => {
@@ -469,8 +536,14 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
 
 
   
-  const handleNewBlock = (data: any) => {
-    const blockData = JSON.parse(data.data)?.result
+  const handleNewBlock = (data: any, err?: Error) => {
+    if (err) {
+      console.error('[NEW_BLOCK] Error in event:', err)
+      return
+    }
+
+    // data IS already the Block object from the SDK
+    const blockData = data as types.Block
     recentBlocksRef.current = [blockData, ...recentBlocksRef.current].slice(0, 3)
 
     // Check if any watched txs are in this block
@@ -495,10 +568,16 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
 
   // Always subscribe to these global events
   useEffect(() => {
-    if (daemonRef.current) {
+    if (daemonRef.current && state.isConnected) {
       // Global events that benefit the entire app
       subscribeToNodeEvent(types.RPCEvent.NewBlock, handleNewBlock)
       subscribeToNodeEvent(types.RPCEvent.StableHeightChanged, handleStableHeight)
+
+      // Cleanup on disconnect
+      return () => {
+        unsubscribeFromNodeEvent(types.RPCEvent.NewBlock)
+        unsubscribeFromNodeEvent(types.RPCEvent.StableHeightChanged)
+      }
     }
   }, [state.isConnected])
 
@@ -569,7 +648,6 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       
       // Skip if we've already seen this configuration
       if (seenConfigurations.has(configKey)) {
-        console.log(`Skipping duplicate network configuration: ${config.name}`);
         continue;
       }
       
@@ -592,26 +670,24 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
 
   const loadCustomNetworksFromStorage = () => {
     const saved = localStorage.getItem('customNetworks');
-    
+
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         let networkMap = new Map<string, CustomNetworkConfig>(Object.entries(parsed));
-        
+
         // Sanitize the network map to ensure uniqueness
         networkMap = sanitizeNetworks(networkMap);
-        
+
         // Update references and state
         customNetworksRef.current = networkMap;
-        dispatch({ 
-          type: 'UPDATE_CUSTOM_NETWORKS', 
-          payload: new Map(networkMap) 
+        dispatch({
+          type: 'UPDATE_CUSTOM_NETWORKS',
+          payload: new Map(networkMap)
         });
-        
+
         // Save the sanitized version back to storage
         saveCustomNetworksToStorage();
-        
-        console.log(`Loaded ${networkMap.size} custom networks (after sanitization)`);
       } catch (error) {
         console.error('Failed to load custom networks:', error);
         setDefaultNetworks();
@@ -625,27 +701,37 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'CONNECT_START' })
     
     try {
-      // Create new daemon instance
-      const daemon = new DaemonWS()
-      
-      // Create a timeout promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Connection timeout after 10 seconds')), 10000)
+      // Create new daemon instance with endpoint
+      const daemon = new DaemonWS(config.url)
+
+      // Barrier: Wait for socket to open before proceeding
+      await new Promise<void>((resolve, reject) => {
+        const socket = daemon.socket
+
+        // If already open, resolve immediately
+        if (socket.readyState === WebSocket.OPEN) {
+          resolve()
+          return
+        }
+
+        const timeout = setTimeout(() => {
+          reject(new Error('Connection timeout'))
+        }, 10000)
+
+        socket.addEventListener('open', () => {
+          clearTimeout(timeout)
+          resolve()
+        }, { once: true })
+
+        socket.addEventListener('error', (error) => {
+          clearTimeout(timeout)
+          reject(error)
+        }, { once: true })
       })
-      
-      // Race the connection against the timeout
-      await Promise.race([
-        daemon.connect(config.url),
-        timeoutPromise
-      ])
-      
-      // Test connection by getting network info (also with timeout)
-      const networkInfo = await Promise.race([
-        daemon.methods.getInfo(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Network info timeout')), 5000)
-        )
-      ]) as types.GetInfoResult
+
+      // Now socket is open - proceed with normal flow
+      // Test connection by getting network info
+      const networkInfo = await daemon.methods.getInfo()
       
       // Store references
       daemonRef.current = daemon
@@ -659,10 +745,14 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
 
       dispatch({
         type: 'CONNECT_SUCCESS',
-        payload: { 
-          network: 'custom' as NetworkType, 
-          node: { url: config.url, name: config.name }, 
-          networkInfo 
+        payload: {
+          network: 'custom' as NetworkType,
+          node: {
+            url: config.url,
+            name: config.name,
+            contractAddresses: config.contractAddresses // Include contract addresses from custom config
+          },
+          networkInfo
         }
       })
     } catch (error: any) {
@@ -763,6 +853,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       getContractBalance,
       getContractModule,
       getContractAssets,
+      getContractLogs,
       validateAddress,
       generateNetworkId,
       availableNetworks,

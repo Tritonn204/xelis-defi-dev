@@ -1,0 +1,170 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DEX Candle Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Lightweight Charts UMD build -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #151922;
+        --text: #c9d1d9;
+        --muted: #8b949e;
+      }
+      html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      .wrap { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+      .toolbar {
+        display: flex; gap: .5rem; align-items: center; padding: .75rem 1rem; background: var(--panel); border-bottom: 1px solid #222834;
+      }
+      .toolbar input, .toolbar select, .toolbar button {
+        background: #0e121a; color: var(--text); border: 1px solid #2a3140; border-radius: 8px; padding: .45rem .6rem;
+      }
+      .toolbar button { cursor: pointer; }
+      .toolbar .hint { color: var(--muted); margin-left: .5rem; font-size: .9rem; }
+      #chart { height: 100%; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="toolbar">
+        <label>Symbol</label>
+        <input id="symbol" value="XEL_USD" size="14" />
+        <label>Resolution</label>
+        <select id="res">
+          <option value="1">1m</option>
+          <option value="5">5m</option>
+          <option value="15">15m</option>
+          <option value="60" selected>1h</option>
+          <option value="240">4h</option>
+          <option value="1D">1D</option>
+          <option value="1W">1W</option>
+          <option value="1M">1M</option>
+        </select>
+        <button id="load">Load</button>
+        <span class="hint" id="status"></span>
+      </div>
+      <div id="chart"></div>
+    </div>
+
+    <script>
+      // === CONFIG ===
+      const API_BASE = 'http://localhost:3000/tv';                 // REST base
+      const API_ORIGIN = API_BASE.replace(/\/tv\/?$/, '');         // http://localhost:3000
+      const WS_BASE = API_ORIGIN.replace(/^http/, location.protocol === 'https:' ? 'wss' : 'ws') + '/ws';
+
+      // Window to fetch per resolution (seconds)
+      function windowFor(res) {
+        switch (res) {
+          case '1':   return 24 * 60 * 60;        // 24h
+          case '5':   return 7  * 24 * 60 * 60;   // 7d
+          case '15':  return 14 * 24 * 60 * 60;   // 14d
+          case '60':  return 60 * 24 * 60 * 60;   // 60d
+          case '240': return 180 * 24 * 60 * 60;  // 180d
+          case '1D':  return 365 * 24 * 60 * 60;  // 1y
+          case '1W':  return 3 * 365 * 24 * 60 * 60; // ~3y
+          case '1M':  return 10 * 365 * 24 * 60 * 60; // ~10y
+          default:    return 24 * 60 * 60;
+        }
+      }
+
+      // === CHART ===
+      const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+        layout: { background: { type: 'solid', color: '#0f1115' }, textColor: '#c9d1d9' },
+        rightPriceScale: { borderVisible: false },
+        timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+        grid: { vertLines: { color: '#1b2230' }, horzLines: { color: '#1b2230' } },
+        crosshair: { mode: 1 },
+      });
+      const series = chart.addCandlestickSeries({
+        upColor: '#2ecc71', downColor: '#e74c3c',
+        borderUpColor: '#2ecc71', borderDownColor: '#e74c3c',
+        wickUpColor: '#2ecc71', wickDownColor: '#e74c3c',
+      });
+      window.addEventListener('resize', () => chart.resize(
+        document.getElementById('chart').clientWidth,
+        document.getElementById('chart').clientHeight
+      ));
+
+      const $symbol = document.getElementById('symbol');
+      const $res = document.getElementById('res');
+      const $load = document.getElementById('load');
+      const $status = document.getElementById('status');
+
+      let ws = null;
+      let desired = { symbol: 'XEL_USD', res: '60' };
+      let reconnectTimer = null;
+
+      function closeWS() {
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        if (ws) { try { ws.onopen = ws.onmessage = ws.onclose = null; ws.close(); } catch {} ws = null; }
+      }
+
+      function openWS(symbol, res) {
+        closeWS();
+        desired = { symbol, res };
+        const url = `${WS_BASE}?symbol=${encodeURIComponent(symbol)}&res=${encodeURIComponent(res)}`;
+        ws = new WebSocket(url);
+
+        ws.onopen = () => { $status.textContent = `${symbol} • ${res} • live`; };
+        ws.onmessage = (ev) => {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'bar') {
+            const b = msg.bar;
+            series.update({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c });
+          }
+        };
+        ws.onclose = () => {
+          $status.textContent = `${symbol} • ${res} • reconnecting…`;
+          reconnectTimer = setTimeout(() => openWS(desired.symbol, desired.res), 1000);
+        };
+      }
+
+      async function loadCandles() {
+        const symbol = $symbol.value.trim().toUpperCase();
+        const resolution = $res.value;
+        if (!symbol) return;
+
+        $status.textContent = 'Loading…';
+        try {
+          const now = Math.floor(Date.now() / 1000);
+          const from = now - windowFor(resolution);
+          const url = `${API_BASE}/history?symbol=${encodeURIComponent(symbol)}&resolution=${encodeURIComponent(resolution)}&from=${from}&to=${now}`;
+          const res = await fetch(url, { cache: 'no-cache' });
+          const data = await res.json();
+
+          if (data.s !== 'ok') {
+            series.setData([]);
+            $status.textContent = data.errmsg ? `No data: ${data.errmsg}` : 'No data';
+            closeWS();
+            return;
+          }
+
+          const bars = data.t.map((t, i) => ({
+            time: data.t[i], open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i],
+          }));
+          series.setData(bars);
+          chart.timeScale().fitContent();
+          $status.textContent = `${symbol} • ${resolution} • ${bars.length} bars`;
+
+          // open (or switch) live stream
+          openWS(symbol, resolution);
+        } catch (e) {
+          console.error(e);
+          $status.textContent = 'Load failed (CORS?)';
+          closeWS();
+        }
+      }
+
+      $load.addEventListener('click', loadCandles);
+
+      // initial
+      (function init() {
+        $symbol.value = desired.symbol;
+        $res.value = desired.res;
+        loadCandles();
+      })();
+    </script>
+  </body>
+</html>

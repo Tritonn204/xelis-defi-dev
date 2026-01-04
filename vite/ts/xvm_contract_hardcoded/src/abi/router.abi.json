@@ -1,6 +1,6 @@
 [
   {
-    "chunk_id": 12,
+    "entry_id": 12,
     "name": "addLiquidity",
     "outputs": "u64",
     "params": [
@@ -16,7 +16,7 @@
     "type": "entry"
   },
   {
-    "chunk_id": 13,
+    "entry_id": 13,
     "name": "removeLiquidity",
     "outputs": "u64",
     "params": [
@@ -28,7 +28,7 @@
     "type": "entry"
   },
   {
-    "chunk_id": 14,
+    "entry_id": 14,
     "name": "swap",
     "outputs": "u64",
     "params": [

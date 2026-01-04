@@ -2,12 +2,18 @@ import { createContext, useContext, useReducer, useEffect, useRef, type ReactNod
 import { LOCAL_XSWD_WS } from '@xelis/sdk/config'
 import XSWD from '@xelis/sdk/xswd/websocket'
 import { type ApplicationData } from '@xelis/sdk/xswd/types'
+import { type RelayerQRData, ConnectModal, type ConnectModalTheme } from '@xelis/xswd-connect'
 
 import * as types from '@xelis/sdk/wallet/types'
 import { NATIVE_ASSET_HASH, useNode } from './NodeContext'
 import { getForgeMetaForAssets } from '@/utils/getForgeMeta'
 import { Asset } from './AssetContext'
 import { responseTransformers } from '@/utils/types'
+
+import e_vert from '@/assets/e_vert_wh.png'
+import { forgeAppData } from './ForgeContext'
+
+export type ConnectionMode = 'direct' | 'relayed'
 
 interface WalletState {
   isConnected: boolean
@@ -17,10 +23,13 @@ interface WalletState {
   connecting: boolean
   error: string | null
   subscribedEvents: string[]
+  qrData: RelayerQRData | null
+  connectionMode: ConnectionMode | null
 }
 
 interface WalletContextType extends WalletState {
-  connectWallet: () => Promise<void>
+  connectWallet: (mode?: ConnectionMode, socket?: any) => Promise<void>
+  openConnectModal: () => void
   disconnectWallet: () => void
   updateBalance: () => Promise<void>
   getAssets: () => Promise<{ [key: string]: types.Asset } | undefined>
@@ -49,21 +58,29 @@ const initialState: WalletState = {
   connecting: false,
   error: null,
   subscribedEvents: [],
+  qrData: null,
+  connectionMode: null,
 }
 
-type WalletAction = 
-  | { type: 'CONNECT_START' }
-  | { type: 'CONNECT_SUCCESS'; payload: { address: string; xelBalance: string; network: string } }
+type WalletAction =
+  | { type: 'CONNECT_START'; payload?: { mode: ConnectionMode } }
+  | { type: 'CONNECT_SUCCESS'; payload: { address: string; xelBalance: string; network: string; mode: ConnectionMode } }
   | { type: 'CONNECT_ERROR'; payload: string }
   | { type: 'DISCONNECT' }
   | { type: 'UPDATE_BALANCE'; payload: string }
   | { type: 'EVENT_SUBSCRIBED'; payload: string }
+  | { type: 'SET_QR_DATA'; payload: RelayerQRData | null }
   | { type: 'EVENT_UNSUBSCRIBED'; payload: string }
 
 const walletReducer = (state: WalletState, action: WalletAction): WalletState => {
   switch (action.type) {
     case 'CONNECT_START':
-      return { ...state, connecting: true, error: null }
+      return {
+        ...state,
+        connecting: true,
+        error: null,
+        connectionMode: action.payload?.mode || null
+      }
     case 'CONNECT_SUCCESS':
       return {
         ...state,
@@ -71,15 +88,23 @@ const walletReducer = (state: WalletState, action: WalletAction): WalletState =>
         address: action.payload.address,
         xelBalance: action.payload.xelBalance,
         network: action.payload.network,
+        connectionMode: action.payload.mode,
         connecting: false,
-        error: null
+        error: null,
+        qrData: null
       }
     case 'CONNECT_ERROR':
       console.log(action.payload)
       return {
         ...state,
         connecting: false,
-        error: action.payload
+        error: action.payload,
+        qrData: null
+      }
+    case 'SET_QR_DATA':
+      return {
+        ...state,
+        qrData: action.payload
       }
     case 'DISCONNECT':
       return {
@@ -108,8 +133,9 @@ const walletReducer = (state: WalletState, action: WalletAction): WalletState =>
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [ownedAssets, setOwnedAssets] = useState<Map<string, types.Asset> | undefined>(new Map());
   const [state, dispatch] = useReducer(walletReducer, initialState)
+  const [showConnectModal, setShowConnectModal] = useState(false)
   const xswdRef = useRef<XSWD | null>(null)
-  const eventCallbacksRef = useRef<Map<string, (data: any) => void>>(new Map())
+  const eventCallbacksRef = useRef<Map<string, (data: any, err?: Error) => void>>(new Map())
 
   const {
     currentNetwork,
@@ -128,62 +154,97 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     return undefined
   }
 
-  const generateSessionAppId = () => {
-    const prefix = '666f726765' // "forge" in hex (10 chars)
-    
-    // Timestamp in hex (last 8 chars to keep it short but unique enough)
-    const timestamp = Date.now().toString(16).slice(-8).padStart(8, '0') // 8 chars
-    
-    // Random hex for the remaining characters (64 - 10 - 8 = 46 chars)
-    const randomHex = Array.from({ length: 23 }, () => 
-      Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-    ).join('') // 46 chars
-    
-    const appId = prefix + timestamp + randomHex
-    
-    // Validate we have exactly 64 hex chars
-    if (appId.length !== 64 || !/^[0-9a-f]{64}$/i.test(appId)) {
-      throw new Error(`Invalid app ID generated: ${appId.length} chars`)
-    }
-    
-    return appId
-  }
-
-  const connectWallet = async () => {
-    dispatch({ type: 'CONNECT_START' })
+  const connectWallet = async (mode: ConnectionMode = 'direct', clientOrUrl?: any) => {
+    console.log('[WalletContext] connectWallet called, mode:', mode)
+    dispatch({ type: 'CONNECT_START', payload: { mode } })
     try {
-      // Create new XSWD instance with application data
+      // Create or use XSWD instance
       if (!xswdRef.current) {
-        xswdRef.current = new XSWD()
+        console.log('[WalletContext] Setting up XSWD instance')
+        if (mode === 'relayed') {
+          // Use the RelayClient provided by xswd-connect (already has .daemon, .wallet, etc.)
+          if (!clientOrUrl) {
+            throw new Error('RelayClient required for relayed connection')
+          }
+          console.log('[WalletContext] Using RelayClient from xswd-connect')
+          xswdRef.current = clientOrUrl
+        } else {
+          // Direct connection (local WebSocket)
+          console.log('[WalletContext] Creating direct WebSocket XSWD connection')
+          xswdRef.current = new XSWD(LOCAL_XSWD_WS)
+        }
+      } else {
+        console.log('[WalletContext] Reusing existing XSWD instance')
       }
 
-      // Connect to the wallet
-      await xswdRef.current.connect(LOCAL_XSWD_WS)
+      // Barrier: Wait for socket to open before proceeding
+      console.log('[WalletContext] Checking socket readyState...')
+      await new Promise<void>((resolve, reject) => {
+        const socket = xswdRef.current!.socket
 
-      // Create application data
-      const applicationData: ApplicationData = {
-        id: generateSessionAppId(),
-        name: 'XELIS Forge',
-        description: 'Deploy, manage, and trade XELIS Assets!',
-        permissions: [
-          "build_transaction", 
-          "get_address", 
-          "get_balance", 
-          "get_asset", 
-          "get_assets",
-          "track_asset",
-          "untrack_asset",
-          "is_asset_tracked",
-          "network_info",
-          "clear_tx_cache",
-        ]
+        console.log('[WalletContext] Socket readyState:', socket.readyState, 'WebSocket.OPEN:', WebSocket.OPEN)
+        // If already open, resolve immediately
+        if (socket.readyState === WebSocket.OPEN) {
+          console.log('[WalletContext] Socket already open, resolving immediately')
+          resolve()
+          return
+        }
+
+        console.log('[WalletContext] Socket not open, waiting for open event...')
+
+        const timeout = setTimeout(() => {
+          reject(new Error('Connection timeout'))
+        }, mode === 'relayed' ? 130000 : 10000) // Longer timeout for relayed
+
+        socket.addEventListener('open', () => {
+          clearTimeout(timeout)
+          resolve()
+        }, { once: true })
+
+        socket.addEventListener('error', () => {
+          clearTimeout(timeout)
+          const errorMsg = mode === 'relayed'
+            ? 'Failed to connect to XSWD relay server'
+            : 'Could not connect to local XSWD server - is it running?'
+          reject(new Error(errorMsg))
+        }, { once: true })
+      })
+
+      console.log("AFTER OPEN")
+
+      // For relayed connections, authorization already happened when wallet scanned QR
+      // The QR code contains app_data and wallet authorizes during scan
+      if (mode !== 'relayed') {
+        console.log("PRE AUTH");
+        await xswdRef.current.authorize(forgeAppData);
+        console.log("AFTER AUTH");
+      } else {
+        console.log("SKIPPING AUTH - already authorized via QR code scan");
       }
 
-      await xswdRef.current.authorize(applicationData);
-      
+      await xswdRef.current.dataCall(
+        'xswd.prefetch_permissions',
+        {
+          reason: "XELIS Forge recommends auto-allowing all permissions listed here for a smooth experience. Access lasts for one XSWD session.",
+          permissions: [
+            "get_address",
+            "get_balance",
+            "get_asset",
+            "get_assets",
+            "is_asset_tracked",
+            "network_info",
+            "clear_tx_cache",
+            "track_asset",
+            "untrack_asset"
+          ]
+        }
+      );
+
+      console.log("POST PERMISSION");
+
       const [address, balanceData, assetData, daemonInfo] = await Promise.all([
         xswdRef.current.wallet.getAddress(),
-        xswdRef.current.wallet.getBalance( NATIVE_ASSET_HASH ),
+        xswdRef.current.wallet.getBalance(NATIVE_ASSET_HASH),
         xswdRef.current.wallet.getAssets(),
         xswdRef.current.daemon.getInfo()
       ])
@@ -194,30 +255,39 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const network = daemonInfo?.network || 'Xelis'
 
       dispatch({
-        type: 'CONNECT_SUCCESS', 
-        payload: { 
-          address, 
-          xelBalance: balance, 
-          network 
-        } 
+        type: 'CONNECT_SUCCESS',
+        payload: {
+          address,
+          xelBalance: balance,
+          network,
+          mode
+        }
       })
+
+      xswdRef.current.socket.addEventListener('close', () => {
+        console.warn('XSWD connection closed');
+        dispatch({ type: 'DISCONNECT' });
+        xswdRef.current = null;
+      });
     } catch (error: any) {
-      dispatch({ type: 'CONNECT_ERROR', payload: error || 'Failed to connect wallet' })
+      dispatch({ type: 'CONNECT_ERROR', payload: error?.message || error || 'Failed to connect wallet' })
       if (xswdRef.current) {
         try {
-          await xswdRef.current.close()
+          xswdRef.current.socket.close()
         } catch (e) {
           console.error('Error disconnecting after failed connection:', e)
         }
         xswdRef.current = null
       }
+      // Re-throw so calling code can handle the error (e.g., show in modal)
+      throw error instanceof Error ? error : new Error(error?.message || error || 'Failed to connect to local wallet')
     }
   }
 
   const disconnectWallet = async () => {
     if (xswdRef.current) {
       try {
-        await xswdRef.current.close()
+        xswdRef.current.socket.close()
         xswdRef.current = null
       } catch (error) {
         console.error('Error disconnecting wallet:', error)
@@ -244,46 +314,53 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       const rawAssets = await xswdRef.current.wallet.getAssets() as any;
-      let assetMap: Map<string, types.Asset> = new Map<string, types.Asset>()
-      const assetHashes = rawAssets.map((assetData: any) => {
-        const hash = assetData[0]
-        assetMap.set(hash, assetData[1])
-        return assetData[0]
-      });
-      
+      const assetMap = new Map<string, types.Asset>(
+        rawAssets.map(({asset, data}: any) => [asset, data])
+      );
+
+      const assetHashes = [...assetMap.keys()];
+
       const factoryContract = getFactoryContract();
       let forgeMetaMap: Record<string, any> = {};
 
-      if (factoryContract && getContractData) {
-        forgeMetaMap = await getForgeMetaForAssets(factoryContract, assetHashes, getContractData);
+      if (factoryContract && getContractData && assetHashes.length) {
+        forgeMetaMap = await getForgeMetaForAssets(
+          factoryContract,
+          assetHashes,
+          getContractData
+        );
       }
-
-      console.log(forgeMetaMap)
-
-      const enrichedAssets: { [key: string]: types.Asset & { isForge?: boolean; mintable?: boolean, logo?: string } } = {};
 
       for (const hash of assetHashes) {
-        const asset = assetMap.get(hash)!;
+        const asset = assetMap.get(hash);
+        if (!asset) continue;
+
         const meta = forgeMetaMap[hash];
 
-        enrichedAssets[hash] = {
+        assetMap.set(hash, {
           ...asset,
-          isForge: meta,
+          isForge: !!meta,
           mintable: meta?.[2]?.value,
           logo: meta?.[4]?.value,
-        };
+        } as types.Asset & { isForge?: boolean; mintable?: boolean; logo?: string });
       }
 
-      setOwnedAssets(new Map(assetMap))
-      console.log("new owned array", ownedAssets, "original", assetMap)
-      return enrichedAssets;
+      setOwnedAssets(assetMap);
+
+      const enrichedAssets = Object.fromEntries(assetMap.entries());
+      return enrichedAssets as Record<
+        string,
+        types.Asset & { isForge?: boolean; mintable?: boolean; logo?: string }
+      >;
     } catch (error) {
-      console.error('Error fetching enriched assets:', error);
+      console.error("Error fetching enriched assets:", error);
     }
   };
 
   const getBalance = async (assetHash?: string) => {
     if (!xswdRef.current || !state.isConnected) return '0'
+
+    console.log("ASSET HASH:", assetHash);
 
     try {
       const balanceData = await xswdRef.current.wallet.getBalance(assetHash || NATIVE_ASSET_HASH)
@@ -369,14 +446,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const subscribeToWalletEvent = (event: types.RPCEvent, callback: (data: any) => void) => {
+  const subscribeToWalletEvent = (event: types.RPCEvent, callback: (data: any, err?: Error) => void) => {
     if (!xswdRef.current) {
       console.warn('Cannot subscribe to event: not connected')
       return
     }
 
     eventCallbacksRef.current.set(event, callback)
-    xswdRef.current.wallet.ws.listenEvent(event, callback)
+    xswdRef.current.wallet.addListener(event, null, callback)
     console.log("subscribed to", event)
     dispatch({ type: 'EVENT_SUBSCRIBED', payload: event })
   }
@@ -386,15 +463,14 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
     const callback = eventCallbacksRef.current.get(event)
     if (callback) {
-      xswdRef.current.wallet.ws.closeAllListens(event).then(() => {
-        eventCallbacksRef.current.delete(event)
-        dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
-      })
+      xswdRef.current.wallet.removeListener(event, null, callback)
+      eventCallbacksRef.current.delete(event)
+      dispatch({ type: 'EVENT_UNSUBSCRIBED', payload: event })
     }
   }
 
   const trackAsset = async (params: {asset: string}) => {
-    const res: any = await xswdRef.current!.wallet.dataCall("track_asset", params)
+    const res: any = await xswdRef.current?.wallet.dataCall("track_asset", params)
     if (res === true) {
       await getAssets()
     }
@@ -402,7 +478,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const untrackAsset = async (params: {asset: string}) => {
-    const res: any = await xswdRef.current!.wallet.dataCall("untrack_asset", params)
+    const res: any = await xswdRef.current?.wallet.dataCall("untrack_asset", params)
     if (res === true) {
       await getAssets()
     }
@@ -410,7 +486,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const isAssetTracked = async (params: {asset: string}) => {
-    const res: any = await xswdRef.current!.wallet.dataCall("is_asset_tracked", params)
+    const res: any = await xswdRef.current?.wallet?.dataCall("is_asset_tracked", params)
     return res
   }
 
@@ -439,7 +515,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         dispatch({ type: 'DISCONNECT' });
 
         try {
-          await xswdRef.current?.close();
+          if (xswdRef.current?.socket) {
+            xswdRef.current.socket.close();
+          }
         } catch (e) {
           console.error("Error closing xswd during heartbeat cleanup:", e);
         }
@@ -461,16 +539,56 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     return () => {
       if (xswdRef.current) {
-        xswdRef.current.close()
+        xswdRef.current.socket.close()
         xswdRef.current = null
       }
     }
   }, [])
 
+  // Connect modal handlers
+  const openConnectModal = () => {
+    setShowConnectModal(true)
+  }
+
+  const handleDirectConnect = async () => {
+    try {
+      await connectWallet('direct')
+      setShowConnectModal(false)
+    } catch (error) {
+      // Re-throw so ConnectModal can show error state
+      throw error
+    }
+  }
+
+  const handleRelayedConnect = async (connection: any) => {
+    try {
+      // Use the RelayClient provided by xswd-connect
+      // It already wraps the TunneledWebSocket with full XSWD functionality
+      await connectWallet('relayed', connection.client)
+      setShowConnectModal(false)
+    } catch (error) {
+      // Re-throw so ConnectModal can show error state
+      throw error
+    }
+  }
+
+  // Forge theme for XSWD Connect modal
+  const xswdTheme: ConnectModalTheme = {
+    primaryColor: '#FF6B35', // forge-orange
+    backgroundColor: '#090909ff', // dark background
+    textColor: '#FFFFFF',
+    secondaryTextColor: '#9CA3AF',
+    outlineColor: '#FF6B3540', // forge-orange at 25% opacity
+    qrCenterBackgroundColor: '#000000', // forge-orange background behind logo
+  }
+
+  // XSWD application data for Forge (must match direct connection applicationData)
+
   return (
     <WalletContext.Provider value={{
       ...state,
       connectWallet,
+      openConnectModal,
       disconnectWallet,
       updateBalance,
       getAssets,
@@ -488,6 +606,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       isAssetTracked
     }}>
       {children}
+
+      {/* Universal Connect Modal */}
+      <ConnectModal
+        relayerUrl="wss://xswd.neptuun.xyz/ws"
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        onDirectConnect={handleDirectConnect}
+        onRelayedConnect={handleRelayedConnect}
+        appData={forgeAppData}
+        theme={xswdTheme}
+        appName="XELIS Forge"
+        appIcon={e_vert}
+      />
     </WalletContext.Provider>
   )
 }

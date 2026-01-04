@@ -40,7 +40,7 @@ const SlippageSettings = ({ slippage, onSlippageChange }: SlippageSettingsProps)
           />
           
           {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-2 bg-black/90 border border-white/20 rounded-xl p-4 z-50 min-w-[280px] backdrop-blur-xl">
+          <div className="absolute right-0 top-full mt-2 bg-black/90 border border-forge-orange/30 rounded-xl p-4 z-50 min-w-[280px] backdrop-blur-xl">
             <div className="text-white font-medium mb-3">Slippage Tolerance</div>
             
             {/* Preset buttons */}
@@ -72,7 +72,7 @@ const SlippageSettings = ({ slippage, onSlippageChange }: SlippageSettingsProps)
                 value={customValue}
                 onChange={(e) => handleCustomChange(e.target.value)}
                 placeholder="0.5"
-                className="flex-1 bg-black/50 border border-white/20 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-forge-orange focus:border-transparent"
+                className="flex-1 bg-black/50 border border-forge-orange/30 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-forge-orange focus:border-transparent"
                 min="0"
                 max="50"
                 step="0.1"

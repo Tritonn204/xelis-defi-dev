@@ -1,9 +1,10 @@
-import React from 'react'
-import Decimal from 'decimal.js'
+import React, { useState } from 'react'
+import Big from 'big.js'
 import { ArrowLeft } from 'lucide-react'
 import Button from '../ui/Button'
+import NewPairFeeModal from '../modal/NewPairFeeModal'
 
-import { PoolData } from '@/contexts/PoolContext'
+import { PoolData, canonicalPoolKey } from '@/contexts/PoolContext'
 
 interface ConfirmLiquidityScreenProps {
   goBack: () => void
@@ -22,7 +23,7 @@ interface ConfirmLiquidityScreenProps {
   routerContract?: string
   txHash?: string
   isSubmitting: boolean
-  onSubmit: () => void
+  onSubmit: (isNewPair: boolean) => void
 }
 
 const ConfirmLiquidityScreen: React.FC<ConfirmLiquidityScreenProps> = ({
@@ -35,6 +36,8 @@ const ConfirmLiquidityScreen: React.FC<ConfirmLiquidityScreenProps> = ({
   isSubmitting,
   onSubmit,
 }) => {
+  const [showNewPairModal, setShowNewPairModal] = useState(false)
+
   const {
     token1Hash,
     token2Hash,
@@ -46,37 +49,58 @@ const ConfirmLiquidityScreen: React.FC<ConfirmLiquidityScreenProps> = ({
     token2Decimals,
   } = tokenSelection
 
-  const poolKey1 = `${token1Hash}_${token2Hash}`
-  const poolKey2 = `${token2Hash}_${token1Hash}`
-  const pool = activePools.get(poolKey1) || activePools.get(poolKey2)
+  const poolKey = canonicalPoolKey(token1Hash, token2Hash)
+  const pool = activePools.get(poolKey)
+  const isNewPair = !pool
 
-  const tokenAAmountAtomic = new Decimal(token1Amount || 0).mul(10 ** token1Decimals)
-  const tokenBAmountAtomic = new Decimal(token2Amount || 0).mul(10 ** token2Decimals)
+  const tokenAAmountAtomic = new Big(token1Amount || 0).mul(10 ** token1Decimals)
+  const tokenBAmountAtomic = new Big(token2Amount || 0).mul(10 ** token2Decimals)
 
   let estimatedLpTokens: string
 
   if (pool) {
-    const poolLockedA = new Decimal(pool.locked[0] || 0)
-    const poolLockedB = new Decimal(pool.locked[1] || 0)
-    const totalLPSupply = new Decimal(pool.totalLpSupply.toString())
+    const poolLockedA = new Big(pool.locked[0] || 0)
+    const poolLockedB = new Big(pool.locked[1] || 0)
+    const totalLPSupply = new Big(pool.totalLpSupply.toString())
 
     const ratioA = tokenAAmountAtomic.div(poolLockedA || 1)
     const ratioB = tokenBAmountAtomic.div(poolLockedB || 1)
-    const shareRatio = Decimal.min(ratioA, ratioB)
+    const shareRatio = ratioA.lt(ratioB) ? ratioA : ratioB;
 
     const lpAmountAtomic = totalLPSupply.mul(shareRatio)
     estimatedLpTokens = lpAmountAtomic.div(1e8).toFixed(8)
   } else {
     const lpAmountAtomic = tokenAAmountAtomic.mul(tokenBAmountAtomic).sqrt()
-    const MINIMUM_LIQUIDITY = new Decimal(1000)
+    const MINIMUM_LIQUIDITY = new Big(1000)
     estimatedLpTokens = lpAmountAtomic.sub(MINIMUM_LIQUIDITY).div(1e8).toFixed(8)
   }
 
   const getUsdValue = (amount: string, price: number) =>
     (parseFloat(amount || '0') * price).toFixed(2)
 
+  const handleConfirmClick = () => {
+    if (isNewPair) {
+      setShowNewPairModal(true)
+    } else {
+      onSubmit(false)
+    }
+  }
+
+  const handleModalConfirm = () => {
+    setShowNewPairModal(false)
+    onSubmit(true)
+  }
+
   return (
     <>
+      <NewPairFeeModal
+        isOpen={showNewPairModal}
+        onConfirm={handleModalConfirm}
+        onCancel={() => setShowNewPairModal(false)}
+        token1Symbol={token1Symbol}
+        token2Symbol={token2Symbol}
+      />
+
       <div className="flex items-center mb-4">
         <button className="text-gray-400 hover:text-white mr-2" onClick={goBack}>
           <ArrowLeft className="w-5 h-5" />
@@ -84,7 +108,7 @@ const ConfirmLiquidityScreen: React.FC<ConfirmLiquidityScreenProps> = ({
         <h2 className="text-xl font-semibold text-white">Confirm</h2>
       </div>
 
-      <div className="bg-black/70 rounded-xl p-4 border border-white/12 mb-4">
+      <div className="bg-black/70 rounded-xl p-4 border border-forge-orange/30 mb-4">
         <h3 className="text-lg font-medium text-white mb-3">You are adding</h3>
 
         <div className="flex justify-between items-center mb-2">
@@ -121,18 +145,18 @@ const ConfirmLiquidityScreen: React.FC<ConfirmLiquidityScreenProps> = ({
       </div>
 
       <Button
-        onClick={onSubmit}
+        onClick={handleConfirmClick}
         focusOnClick={false}
         className="
-          w-full 
-          bg-forge-orange 
-          hover:bg-forge-orange/90 
-          disabled:bg-gray-600 
-          text-white 
+          w-full
+          bg-forge-orange
+          hover:bg-forge-orange/90
+          disabled:bg-gray-600
+          text-white
           font-light
           text-[1.5rem]
-          py-1 px-4 
-          rounded-xl 
+          py-1 px-4
+          rounded-xl
           transition-all duration-200
           hover:shadow-lg
           hover:ring-2 ring-white

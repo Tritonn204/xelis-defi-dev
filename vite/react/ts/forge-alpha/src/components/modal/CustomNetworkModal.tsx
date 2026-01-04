@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNode, type CustomNetworkConfig } from '../../contexts/NodeContext'
+import { useNode, type NodeConfig } from '../../contexts/NodeContext'
 import { X, Trash2 } from 'lucide-react'
 import Button from '../ui/Button'
 import ConfirmDialog from '../ui/ConfirmDialog'
@@ -7,11 +7,12 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 interface CustomNetworkModalProps {
   isOpen: boolean
   onClose: () => void
-  editingNetwork?: { id: string, config: CustomNetworkConfig } | null
+  editingNetwork?: { id: string, config: NodeConfig } | null
 }
 
 const CustomNetworkModal = ({ isOpen, onClose, editingNetwork }: CustomNetworkModalProps) => {
-  const { connectToCustomNetwork, saveCustomNetwork, updateCustomNetwork, deleteCustomNetwork } = useNode()
+  const { connectToCustomNetwork, saveCustomNetwork, updateCustomNetwork, deleteCustomNetwork, getCustomNetworks } = useNode()
+  const existingNetworks = getCustomNetworks();
   const [formData, setFormData] = useState({
     name: '',
     wsEndpoint: '',
@@ -23,6 +24,18 @@ const CustomNetworkModal = ({ isOpen, onClose, editingNetwork }: CustomNetworkMo
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const isEditing = !!editingNetwork
+
+  const isDuplicateName = isEditing 
+    ? existingNetworks.some(net => 
+        net.name === formData.name && 
+        net.name !== editingNetwork.config.name
+      )
+    : existingNetworks.some(net => net.name === formData.name)
+
+  const isFormValid = 
+    formData.name.trim() && 
+    formData.wsEndpoint.trim() && 
+    !isDuplicateName
 
   // Load data when editing
   useEffect(() => {
@@ -130,7 +143,7 @@ const CustomNetworkModal = ({ isOpen, onClose, editingNetwork }: CustomNetworkMo
   return (
     <>
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-black/80 border-1 border-forge-orange/10 backdrop-blur-sm rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="bg-black/80 border-2 border-forge-orange/30 backdrop-blur-sm rounded-lg p-6 w-full max-w-md mx-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-white">
               {isEditing ? 'Edit Custom Network' : 'Add Custom Network'}
@@ -143,6 +156,14 @@ const CustomNetworkModal = ({ isOpen, onClose, editingNetwork }: CustomNetworkMo
           {error && (
             <div className="bg-red-500/20 border border-red-500/50 rounded-md p-3 mb-4">
               <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
+
+          {isDuplicateName && (
+            <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-md p-3 mb-4">
+              <p className="text-yellow-400 text-sm">
+                A network with the name "{formData.name}" already exists
+              </p>
             </div>
           )}
 
@@ -219,9 +240,9 @@ const CustomNetworkModal = ({ isOpen, onClose, editingNetwork }: CustomNetworkMo
                   <Button
                     type="button"
                     onClick={handleSubmit}
-                    className="flex-1 bg-gray-700 text-white hover:bg-gray-600 py-2.5 rounded-md"
-                    isLoading={connecting && !showDeleteConfirm}
-                    disabled={connecting}
+                    className="flex-1 bg-gray-700 text-white hover:bg-gray-600 py-2.5 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    isLoading={connecting}
+                    disabled={connecting || !isFormValid}
                   >
                     Save Changes
                   </Button>
@@ -230,8 +251,9 @@ const CustomNetworkModal = ({ isOpen, onClose, editingNetwork }: CustomNetworkMo
                   <Button
                     type="button"
                     onClick={handleConnectToExisting}
-                    className="flex-1 bg-forge-orange text-white hover:bg-orange-600 py-2.5 rounded-md"
+                    className="flex-1 bg-forge-orange text-white hover:bg-orange-600 py-2.5 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                     isLoading={connecting}
+                    disabled={connecting || !isFormValid}
                   >
                     Connect
                   </Button>
@@ -250,7 +272,8 @@ const CustomNetworkModal = ({ isOpen, onClose, editingNetwork }: CustomNetworkMo
                     type="button"
                     onClick={handleSubmit}
                     isLoading={connecting}
-                    className="flex-1 bg-forge-orange text-white hover:bg-orange-600 py-2.5 rounded-md"
+                    className="flex-1 bg-forge-orange text-white hover:bg-orange-600 py-2.5 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={connecting || !isFormValid}
                   >
                     Add & Connect
                   </Button>

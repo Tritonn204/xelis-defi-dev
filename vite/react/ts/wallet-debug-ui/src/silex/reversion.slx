@@ -1,0 +1,60 @@
+struct TXRecord {
+    hash: string,
+    amount: u64
+}
+
+hook constructor() -> u64 {
+    let storage: Storage = Storage::new();
+    let baseTemplate: TXRecord[] = [];
+    
+    storage.store("failures", baseTemplate);
+    storage.store("safeTXRecords", baseTemplate);
+    return 0;
+}
+
+/* 
+Takes a deposit of any asset, and fails on an unhandled VM error
+*/
+entry refund_deposit_unsafe(asset: Hash) {
+    let storage: Storage = Storage::new();
+    let a: u64 = u64::MAX;
+    let b: u64 = get_deposit_for_asset(asset).unwrap();
+    
+    require(b > 1, "False tx success if deposit less than 2");
+    
+    let record: TXRecord = TXRecord {
+        hash: Transaction::current().hash().to_hex(),
+        amount: b,
+    }
+    let fails: TXRecord[] = storage.load("failures").expect("unsafeStorageLoad");
+    fails.push(record);
+    storage.store("failures", fails);
+    
+    let unsafe_res: u64 = a.checked_mul(b).expect("unsafeMulOverflow") // FAIL to trigger problematic proofs
+    transfer(Transaction::current().source(), b, asset);
+    return 0; 
+} 
+
+/*  
+Takes a deposit of any asset, and record the txHash dep amount on success
+*/
+entry refund_deposit_safe(asset: Hash) {
+    let storage: Storage = Storage::new();
+    let a: u128 = u64::MAX as u128;
+    let b: u128 = get_deposit_for_asset(asset).unwrap() as u128;
+    
+    require(b > 1, "Not an A_vs_B test if deposit less than 2")
+    
+    let safe_res: u128 = a.checked_mul(b).expect("safeMulOverflow")
+    transfer(Transaction::current().source(), b as u64, asset);
+    
+    let record: TXRecord = TXRecord {
+        hash: Transaction::current().hash().to_hex(),
+        amount: b as u64,
+    }
+    let successes: TXRecord[] = storage.load("safeTXRecords").expect("safeStorageLoad");
+    successes.push(record);
+    storage.store("safeTXRecords", successes);
+    
+    return 0;
+}

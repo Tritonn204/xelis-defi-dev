@@ -1,3 +1,167 @@
+@import url('https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;1,400&display=swap');
+
+/* Toast animations */
+@keyframes toast-enter {
+  0% {
+    transform: translateX(100%) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-leave {
+  0% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%) scale(0.9);
+    opacity: 0;
+  }
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Animated border gradient */
+@keyframes border-flow {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 200% 0%;
+  }
+}
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotate-angle {
+  to {
+    --angle: 360deg;
+  }
+}
+
+.animated-border {
+  position: relative;
+  overflow: visible;
+}
+
+.animated-border::after {
+  content: '';
+  position: absolute;
+  inset: 0px;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--angle, 0deg),
+    rgba(255, 73, 2, 0.025) 0deg,
+    rgba(255, 73, 2, 0.075) 60deg,
+    rgba(255, 73, 2, 0.2) 120deg,
+    rgba(255, 73, 2, 0.4) 180deg,
+    rgba(255, 73, 2, 0.2) 240deg,
+    rgba(255, 73, 2, 0.075) 300deg,
+    rgba(255, 73, 2, 0.025) 360deg
+  );
+  animation: rotate-angle 16s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Compensate border-radius for 1px border width on different rounded sizes */
+.animated-border.rounded-2xl::after {
+  border-radius: calc(1rem - 2px);
+}
+
+.animated-border.rounded-xl::after {
+  border-radius: calc(0.75rem - 2px);
+}
+
+.animated-border.rounded-lg::after {
+  border-radius: calc(0.5rem - 2px);
+}
+
+.animated-border.rounded-md::after {
+  border-radius: calc(0.375rem - 2px);
+}
+
+.animated-border > * {
+  position: relative;
+}
+
+.price-scale-toggle {
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+  line-height: 1;
+  z-index: 3;
+}
+
+/* Cross-fade the 'lin'/'log' text */
+.price-scale-toggle .label {
+  position: relative;
+  display: block;
+  height: 1em;
+}
+.price-scale-toggle .t {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transition: opacity .25s ease;
+  opacity: 0;
+}
+.price-scale-toggle.is-log .t--log { opacity: 1; }
+.price-scale-toggle:not(.is-log) .t--lin { opacity: 1; }
+
+.price-scale-toggle .hint {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(200, 200, 200, 0.8);
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity .16s ease, transform .16s ease;
+  pointer-events: none;
+}
+.price-scale-toggle:hover .hint {
+  opacity: .9;
+  transform: translateY(0);
+}
+
+.math-italic {
+  font-family: "STIX Two Text","Cambria Math","XITS Math","Times New Roman",Times,serif !important;
+  font-style: italic !important;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

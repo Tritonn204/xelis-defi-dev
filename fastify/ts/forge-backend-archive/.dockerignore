@@ -1,0 +1,32 @@
+# Ignore everything
+**
+
+# Re-allow the files your Dockerfile copies before install
+!pnpm-workspace.yaml
+!package.json
+!pnpm-lock.yaml
+!tsconfig*.json
+!.npmrc
+
+# Re-allow just the packages you need
+!packages
+!packages/forge-indexer
+!packages/forge-indexer/**
+!packages/shared
+!packages/shared/**
+
+# If you vendor anything (uncomment if you use it)
+# !third_party
+# !third_party/xelis-js-sdk
+# !third_party/xelis-js-sdk/**
+
+# Still ignore heavy junk inside the allowed dirs
+packages/**/node_modules
+packages/**/.pnpm
+packages/**/dist
+packages/**/.turbo
+packages/**/.tsbuildinfo
+packages/**/coverage
+packages/**/build
+packages/**/logs
+packages/**/.DS_Store

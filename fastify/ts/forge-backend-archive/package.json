@@ -1,0 +1,16 @@
+{
+  "name": "forge-backend-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "dev": "pnpm -r --parallel run dev"
+  },
+  "dependencies": {
+    "ioredis": "^5.7.0"
+  }
+}

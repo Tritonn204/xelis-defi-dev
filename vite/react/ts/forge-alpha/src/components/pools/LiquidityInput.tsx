@@ -38,7 +38,7 @@ const LiquidityInput = ({
   }
 
   return (
-    <div className="bg-black/70 rounded-2xl p-3 border border-white/12 backdrop-blur-l">
+    <div className="bg-black/70 rounded-2xl p-3 border border-forge-orange/30 backdrop-blur-l">
       <div className="flex flex-col">
         {/* Label aligned with input */}
         <div className="flex items-center justify-between">

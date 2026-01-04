@@ -1,0 +1,132 @@
+{
+  "data": [
+    {
+      "entry_id": 24,
+      "name": "add_liquidity",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "token0_hash",
+          "type": "Hash"
+        },
+        {
+          "name": "token1_hash",
+          "type": "Hash"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 25,
+      "name": "remove_liquidity",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "liquidity_token_hash",
+          "type": "Hash"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 26,
+      "name": "swap",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "token_in_hash",
+          "type": "Hash"
+        },
+        {
+          "name": "token_out_hash",
+          "type": "Hash"
+        },
+        {
+          "name": "amount_out_min",
+          "type": "u64"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 27,
+      "name": "update_dao",
+      "outputs": "u64",
+      "params": [
+        {
+          "internal_type": "DAO",
+          "name": "new_dao",
+          "type": "struct"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 28,
+      "name": "update_dao_fee",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "fee",
+          "type": "u64"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 29,
+      "name": "update_creator_fee_tiers",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "new_tiers",
+          "type": "FeeTier[]"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 30,
+      "name": "update_launchpad",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "launchpad",
+          "type": "Hash"
+        }
+      ],
+      "type": "entry"
+    }
+  ],
+  "internal_types": [
+    {
+      "fields": [
+        {
+          "name": "hash",
+          "type": "Hash"
+        },
+        {
+          "name": "entry",
+          "type": "u16"
+        }
+      ],
+      "kind": "struct",
+      "name": "DAO"
+    },
+    {
+      "fields": [
+        {
+          "name": "marketcap_threshold",
+          "type": "u64"
+        },
+        {
+          "name": "fee_multiplier",
+          "type": "u256"
+        }
+      ],
+      "kind": "struct",
+      "name": "FeeTier"
+    }
+  ],
+  "version": "1.1.1"
+}

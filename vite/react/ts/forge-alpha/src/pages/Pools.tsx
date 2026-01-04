@@ -3,6 +3,7 @@ import { useWallet } from '@/contexts/WalletContext'
 import { NATIVE_ASSET_HASH, useNode } from '@/contexts/NodeContext'
 import { usePools } from '@/contexts/PoolContext';
 import { useTransactionContext, type TransactionStatus } from '@/contexts/TransactionContext'
+import { showErrorToast, showSubmitToast } from '@/utils/toast'
 
 import PoolListScreen from '@/components/pools/PoolListScreen';
 import SelectTokensScreen from '@/components/pools/SelectTokensScreen'
@@ -19,12 +20,9 @@ import PoolStats from '@/components/pools/PoolStats'
 import { ArrowLeft } from 'lucide-react'
 
 // Contract interfaces
-import * as router from '@/contracts/router/contract';
+// import * as router from '@/contracts/router/contract';
+import { useForge } from '@/contexts/ForgeContext'; 
 
-import * as daemonTypes from '@xelis/sdk/daemon/types'
-import * as walletTypes from '@xelis/sdk/wallet/types'
-
-import Decimal from 'decimal.js'
 import { useAssets } from '@/contexts/AssetContext';
 import { usePrices } from '@/contexts/PriceContext';
 import RemoveLiquidityScreen from '@/components/pools/RemoveLiquidityScreen';
@@ -41,12 +39,12 @@ const SCREENS = {
 }
 
 const Pools = () => {
-  const { 
-    isConnected, 
-    connectWallet, 
-    connecting, 
-    address, 
-    xelBalance ,
+  const {
+    isConnected,
+    openConnectModal,
+    connecting,
+    address,
+    xelBalance,
     buildTransaction,
     submitTransaction,
     clearTxCache,
@@ -69,61 +67,33 @@ const Pools = () => {
   const {
     assetPrices
   } = usePrices()
-  // Screen state
-  const [currentScreen, setCurrentScreen] = useState(SCREENS.LIST)
-  const [currentFlow, setCurrentFlow] = useState<'add' | 'remove'>('add')
-  const [autoFillEnabled, setAutoFillEnabled] = useState(true);
-  const currentScreenRef = useRef(currentScreen)
-  const currentFlowRef = useRef(currentFlow)
+  const {
+    router
+  } = useForge()
 
-  useEffect(() => {
-    currentScreenRef.current = currentScreen
-  }, [currentScreen])
-
-  useEffect(() => {
-    currentFlowRef.current = currentFlow
-  }, [currentFlow])
-  // Asset state
-  const { 
-    activePools, 
-    loadingPools, 
-    poolsError, 
+  const {
+    activePools,
+    loadingPools,
+    poolsError,
     refreshPools,
   } = usePools();
 
-    const {
+  const {
     assets,
     loading: loadingAssets,
     error: assetError,
     refreshAssets
   } = useAssets()
 
-  // Get router contract address from custom network config
-  const getrouterContract = () => {
-    if (currentNetwork === 'custom' && currentNode) {
-      const networkConfig = Array.from(customNetworks.values())
-        .find(network => network.name === currentNode.name)
-      
-      return networkConfig?.contractAddresses?.router
-    }
-    return undefined
-  }
-
-  const routerContract = getrouterContract()
+  // Get router contract address from current node (works for all networks)
+  const routerContract = currentNode?.contractAddresses?.router
   const availableAssets = assets
 
-  // Mount ping
+  // All state declarations
+  const [currentScreen, setCurrentScreen] = useState(SCREENS.LIST)
+  const [currentFlow, setCurrentFlow] = useState<'add' | 'remove'>('add')
+  const [autoFillEnabled, setAutoFillEnabled] = useState(true);
   const [refresh, setRefresh] = useState(false)
-  useEffect(() => {
-    if (refresh) {
-      refreshPools();
-      if (isConnected) {
-        refreshAssets();
-      }
-    }
-  }, [isConnected, routerContract, refresh]);
-  
-  // Liquidity state
   const [tokenSelection, setTokenSelection] = useState({
     token1Hash: '',
     token2Hash: '',
@@ -134,10 +104,39 @@ const Pools = () => {
     token1Decimals: 8,
     token2Decimals: 8
   })
-  
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [txHash, setTxHash] = useState('')
+
+  // Refs
+  const currentScreenRef = useRef(currentScreen)
+  const currentFlowRef = useRef(currentFlow)
+
+  // Effects
+  useEffect(() => {
+    currentScreenRef.current = currentScreen
+  }, [currentScreen])
+
+  useEffect(() => {
+    currentFlowRef.current = currentFlow
+  }, [currentFlow])
+
+  // Handle wallet disconnects - free up buttons
+  useEffect(() => {
+    if (!isConnected && isSubmitting) {
+      setIsSubmitting(false)
+      showErrorToast('Wallet disconnected', { duration: 4000 })
+    }
+  }, [isConnected, isSubmitting])
+
+  useEffect(() => {
+    if (refresh) {
+      refreshPools();
+      if (isConnected) {
+        refreshAssets();
+      }
+    }
+  }, [isConnected, routerContract, refresh])
 
   // Navigate between screens
   const goToScreen = (screen: string) => {
@@ -148,7 +147,7 @@ const Pools = () => {
   // Start add liquidity flow
   const handleAddLiquidity = () => {
     if (!isConnected) {
-      connectWallet()
+      openConnectModal()
       return
     }
     setCurrentFlow('add')
@@ -158,7 +157,7 @@ const Pools = () => {
   // Start remove liquidity flow
   const handleRemoveLiquidity = () => {
     if (!isConnected) {
-      connectWallet()
+      openConnectModal()
       return
     }
     setCurrentFlow('remove')
@@ -218,7 +217,7 @@ const Pools = () => {
   }
 
   // Submit liquidity addition
-  const submitAddLiquidity = async () => {
+  const submitAddLiquidity = async (isNewPair: boolean = false) => {
     setIsSubmitting(true)
     setError('')
 
@@ -230,7 +229,7 @@ const Pools = () => {
       console.log(tokenSelection)
 
       const token1Amount = formatAmountForContract(
-        tokenSelection.token1Amount, 
+        tokenSelection.token1Amount,
         tokenSelection.token1Decimals
       )
 
@@ -239,38 +238,62 @@ const Pools = () => {
         tokenSelection.token2Decimals
       )
 
-      const txData = router.entries.createAddLiquidityTransaction({
+      // Build deposits object
+      const deposits: Record<string, number> = {
+        [tokenSelection.token1Hash]: token1Amount,
+        [tokenSelection.token2Hash]: token2Amount,
+      }
+
+      // Add 1 XEL protocol fee for new pair creation
+      if (isNewPair) {
+        const NEW_PAIR_FEE = 1e8 // 1 XEL in atomic units
+        if (deposits[NATIVE_ASSET_HASH]) {
+          deposits[NATIVE_ASSET_HASH] += NEW_PAIR_FEE
+        } else {
+          deposits[NATIVE_ASSET_HASH] = NEW_PAIR_FEE
+        }
+      }
+
+      const txData = router?.invokeUnsafe('add_liquidity', {
         contract: routerContract,
-        token1Hash: tokenSelection.token1Hash,
-        token2Hash: tokenSelection.token2Hash,
-        token1Amount,
-        token2Amount
-      })
+        token0_hash: tokenSelection.token1Hash,
+        token1_hash: tokenSelection.token2Hash,
+        deposits,
+        permission: "all",
+      })!
+
+      console.log("XSWD Request Base", txData);
 
       const txBuilder: any = await buildTransaction(txData)
 
       console.log("Add LP TX", txBuilder)
 
-      awaitContractInvocation(txBuilder.hash, routerContract, async (status, hash) => {
-        console.log(`Tx ${hash} completed with status: ${status}`)
-        setTxHash(hash)
-        setRefresh(!refresh)
+      awaitContractInvocation(txBuilder.hash, routerContract, {
+        successMessage: 'Liquidity added successfully!',
+        callback: async (status, hash) => {
+          console.log(`Tx ${hash} completed with status: ${status}`)
+          setTxHash(hash)
+          setRefresh(!refresh)
 
-        if (status === 'executed') {
-          if (currentScreenRef.current == SCREENS.CONFIRM) {
-            goToScreen(SCREENS.SUCCESS)            
-          }
-        } else {
-          setError(`Transaction ${status}`)
-          if (currentScreenRef.current == SCREENS.CONFIRM) {
-            goToScreen(SCREENS.ERROR)            
+          if (status === 'executed') {
+            if (currentScreenRef.current == SCREENS.CONFIRM) {
+              goToScreen(SCREENS.SUCCESS)
+            }
+          } else {
+            const errorMsg = status === 'reverted' ? 'Transaction reverted' : `Transaction ${status}`
+            setError(errorMsg)
+            if (currentScreenRef.current == SCREENS.CONFIRM) {
+              goToScreen(SCREENS.ERROR)
+            }
           }
         }
-
-        setIsSubmitting(false)
       })
 
       await submitTransaction(txBuilder)
+
+      // Free up the button immediately after submission
+      setIsSubmitting(false)
+      showSubmitToast()
 
     } catch (err: any) {
       let cacheErrorMessage = ''
@@ -300,39 +323,48 @@ const Pools = () => {
 
       console.log(tokenSelection)
 
-      const txData = router.entries.createRemoveLiquidityTransaction({
+      const txData = router?.invokeUnsafe('remove_liquidity', {
         contract: routerContract,
-        liquidityTokenHash: lp,
-        liquidityAmount: amount
-      })
+        liquidity_token_hash: lp,
+        deposits: {
+          [lp]: amount
+        },
+        permission: "all",
+      })!
 
       const txBuilder: any = await buildTransaction(txData)
 
       console.log("Remove LP TX", txBuilder)
 
-      awaitContractInvocation(txBuilder.hash, routerContract, async (status, hash) => {
-        console.log(`Tx ${hash} completed with status: ${status}`)
-        setTxHash(hash)
-        setRefresh(!refresh)
-        let screenCheck
-        if (currentFlowRef.current == 'add') screenCheck = SCREENS.CONFIRM
-        else if (currentFlowRef.current == 'remove') screenCheck = SCREENS.SELECT_TOKENS_REMOVE
+      awaitContractInvocation(txBuilder.hash, routerContract, {
+        successMessage: 'Liquidity removed successfully!',
+        callback: async (status, hash) => {
+          console.log(`Tx ${hash} completed with status: ${status}`)
+          setTxHash(hash)
+          setRefresh(!refresh)
+          let screenCheck
+          if (currentFlowRef.current == 'add') screenCheck = SCREENS.CONFIRM
+          else if (currentFlowRef.current == 'remove') screenCheck = SCREENS.SELECT_TOKENS_REMOVE
 
-        if (status === 'executed') {
-          if (currentScreenRef.current == screenCheck) {
-            goToScreen(SCREENS.SUCCESS)            
-          }
-        } else {
-          setError(`Transaction ${status}`)
-          if (currentScreenRef.current == screenCheck) {
-            goToScreen(SCREENS.ERROR)            
+          if (status === 'executed') {
+            if (currentScreenRef.current == screenCheck) {
+              goToScreen(SCREENS.SUCCESS)
+            }
+          } else {
+            const errorMsg = status === 'reverted' ? 'Transaction reverted' : `Transaction ${status}`
+            setError(errorMsg)
+            if (currentScreenRef.current == screenCheck) {
+              goToScreen(SCREENS.ERROR)
+            }
           }
         }
-
-        setIsSubmitting(false)
       })
 
       await submitTransaction(txBuilder)
+
+      // Free up the button immediately after submission
+      setIsSubmitting(false)
+      showSubmitToast()
 
     } catch (err: any) {
       let cacheErrorMessage = ''
@@ -463,7 +495,7 @@ const Pools = () => {
   }
 
   return (
-    <div className="flex justify-center items-center min-h-[75vh]">
+    <div className="flex justify-center items-center min-h-[75vh] -mt-[40px]">
       <div className="background-transparent rounded-2xl p-5 w-full max-w-md">
         <GeometricAccents
           accentWidth={19}
@@ -475,7 +507,6 @@ const Pools = () => {
           alpha={0.7}
           glassEffect={true}
           gradient={true}
-          gradientBurn={0.1}
           blendMode='soft-light'
           isLoading={isSubmitting}
         >

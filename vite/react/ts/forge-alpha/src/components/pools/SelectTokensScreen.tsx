@@ -1,9 +1,12 @@
-import React from 'react'
-import { ArrowLeft } from 'lucide-react'
+import React, { useState, lazy, Suspense } from 'react'
+import { ArrowLeft, ChevronDown } from 'lucide-react'
 import Button from '../ui/Button'
 import { Asset } from '@/contexts/AssetContext'
 import { usePools } from '@/contexts/PoolContext'
 import PoolList from './PoolList'
+import { TokenIcon } from '../ui/TokenIcon'
+
+const TokenSelectModal = lazy(() => import('../modal/TokenSelectModal'))
 
 interface SelectTokensScreenProps {
   goBack: () => void
@@ -16,7 +19,7 @@ interface SelectTokensScreenProps {
   }
   setTokenSelection: (next: Partial<SelectTokensScreenProps['tokenSelection']>) => void
   loadingAssets: boolean
-  availableAssets: Asset[]
+  availableAssets: Record<string, Asset>
   assets: Record<string, Asset>
 }
 
@@ -30,6 +33,32 @@ const SelectTokensScreen: React.FC<SelectTokensScreenProps> = ({
   assets
 }) => {
   const { activePools } = usePools()
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalPosition, setModalPosition] = useState<'token1' | 'token2'>('token1')
+
+  const handleTokenSelect = (position: 'token1' | 'token2') => {
+    setModalPosition(position)
+    setIsModalOpen(true)
+  }
+
+  const handleTokenSelected = (tokenHash: string) => {
+    const asset = assets[tokenHash]
+    if (!asset) return
+
+    if (modalPosition === 'token1') {
+      setTokenSelection({
+        token1Hash: tokenHash,
+        token1Symbol: asset.ticker
+      })
+    } else {
+      setTokenSelection({
+        token2Hash: tokenHash,
+        token2Symbol: asset.ticker
+      })
+    }
+    setIsModalOpen(false)
+  }
+
   return (
     <>
       <div className="flex items-center mb-4">
@@ -68,54 +97,55 @@ const SelectTokensScreen: React.FC<SelectTokensScreenProps> = ({
 
           {/* Token selectors */}
           <div className="grid grid-cols-2 gap-2 mb-2">
-            <div className="bg-black/70 rounded-xl p-3 border border-white/12">
-              <div className="text-white font-medium mb-2">Token 1</div>
-              <select
-                className="w-full bg-black/80 text-white p-2 rounded-lg border border-white/20"
-                onChange={(e) => {
-                  const hash = e.target.value
-                  setTokenSelection({
-                    token1Hash: hash,
-                    token1Symbol: assets[hash]?.ticker || 'Unknown'
-                  })
-                }}
-                value={tokenSelection.token1Hash || ''}
+            <div className="bg-black/70 rounded-xl p-3 border border-forge-orange/30">
+              <div className="text-white font-medium mb-2">Asset 1</div>
+              <Button
+                onClick={() => handleTokenSelect('token1')}
+                className="w-full flex items-center justify-between p-3 bg-black/80 hover:bg-black/60 rounded-lg border border-forge-orange/30 transition-all duration-200"
               >
-                <option value="">Select Token</option>
-                {Object.entries(availableAssets).map(([hash, asset]) => (
-                  <option key={hash} value={hash}>
-                    {asset.ticker} - {asset.name}
-                  </option>
-                ))}
-              </select>
+                {tokenSelection.token1Hash && assets[tokenSelection.token1Hash] ? (
+                  <div className="flex items-center space-x-2">
+                    <TokenIcon
+                      tokenSymbol={assets[tokenSelection.token1Hash].ticker}
+                      tokenHash={tokenSelection.token1Hash}
+                      tokenName={assets[tokenSelection.token1Hash].name}
+                      size={24}
+                    />
+                    <span className="text-white">{assets[tokenSelection.token1Hash].ticker}</span>
+                  </div>
+                ) : (
+                  <span className="text-gray-400">Select Asset</span>
+                )}
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </Button>
             </div>
 
-            <div className="bg-black/70 rounded-xl p-3 border border-white/12">
-              <div className="text-white font-medium mb-2">Token 2</div>
-              <select
-                className="w-full bg-black/80 text-white p-2 rounded-lg border border-white/20"
-                onChange={(e) => {
-                  const hash = e.target.value
-                  setTokenSelection({
-                    token2Hash: hash,
-                    token2Symbol: assets[hash]?.ticker || 'Unknown'
-                  })
-                }}
-                value={tokenSelection.token2Hash || ''}
+            <div className="bg-black/70 rounded-xl p-3 border border-forge-orange/30">
+              <div className="text-white font-medium mb-2">Asset 2</div>
+              <Button
+                onClick={() => handleTokenSelect('token2')}
+                className="w-full flex items-center justify-between p-3 bg-black/80 hover:bg-black/60 rounded-lg border border-forge-orange/30 transition-all duration-200"
               >
-                <option value="">Select Token</option>
-                {Object.entries(availableAssets).map(([hash, asset]) => (
-                  <option key={hash} value={hash}>
-                    {asset.ticker} - {asset.name}
-                  </option>
-                ))}
-              </select>
+                {tokenSelection.token2Hash && assets[tokenSelection.token2Hash] ? (
+                  <div className="flex items-center space-x-2">
+                    <TokenIcon
+                      tokenSymbol={assets[tokenSelection.token2Hash].ticker}
+                      tokenHash={tokenSelection.token2Hash}
+                      tokenName={assets[tokenSelection.token2Hash].name}
+                      size={24}
+                    />
+                    <span className="text-white">{assets[tokenSelection.token2Hash].ticker}</span>
+                  </div>
+                ) : (
+                  <span className="text-gray-400">Select Asset</span>
+                )}
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </Button>
             </div>
           </div>
 
           <Button
             onClick={() => {
-              console.log("CLICKED")
               onContinue(tokenSelection.token1Hash, tokenSelection.token2Hash)
             }}
             focusOnClick={false}
@@ -148,6 +178,27 @@ const SelectTokensScreen: React.FC<SelectTokensScreenProps> = ({
           </div>
         )}
       </div>
+
+      {/* Token Selection Modal */}
+      {isModalOpen && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+            </div>
+          </div>
+        }>
+          <TokenSelectModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onSelect={handleTokenSelected}
+            currentToken={modalPosition === 'token1' ? tokenSelection.token1Hash : tokenSelection.token2Hash}
+            otherToken={modalPosition === 'token1' ? tokenSelection.token2Hash : tokenSelection.token1Hash}
+            position="from"
+            mode="pool"
+          />
+        </Suspense>
+      )}
     </>
   )
 }

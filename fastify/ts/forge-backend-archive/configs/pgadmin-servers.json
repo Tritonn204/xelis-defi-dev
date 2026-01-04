@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Forge Database",
+      "Group": "Docker Swarm",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "forgedb",
+      "Username": "forgeuser",
+      "SSLMode": "prefer",
+      "SavePassword": false,
+      "Comment": "Auto-configured server"
+    }
+  }
+}

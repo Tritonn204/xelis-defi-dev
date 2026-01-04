@@ -6,7 +6,7 @@ import * as types from '@xelis/sdk/daemon/types'
 import { genericTransformer, responseTransformers} from '../utils/types'
 import { type AppTxError } from '@/types/errors'
 
-type NetworkType = 'mainnet' | 'testnet' | 'custom'
+type NetworkType = 'mainnet' | 'testnet' | 'stagenet' | 'custom'
 
 interface NodeConfig {
   url: string
@@ -43,6 +43,9 @@ const NETWORK_NODES: NetworkConfig = {
   ],
   testnet: [
     { url: TESTNET_NODE_WS, name: 'Official Testnet' }
+  ],
+  stagenet: [
+    { url: TESTNET_NODE_WS, name: 'Official Stagenet' }
   ],
   custom: 'custom'
 }
@@ -98,7 +101,7 @@ interface NodeContextType extends NodeState {
   getAsset: (params: types.GetAssetParams) => Promise<types.AssetData>
   getAssetSupply: (params: types.GetAssetParams) => Promise<any>
   getAssets: (params?: types.GetAssetsParams) => Promise<string[]>
-  getContractOutputs: (params: any) => Promise<any>
+  getContractLogs: (params: any) => Promise<any>
   
   // Smart contract queries
   getContractData: (params: types.GetContractDataPrams) => Promise<types.GetContractDataResult>
@@ -437,7 +440,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
     const res = await daemonRef.current!.dataCall("get_contract_assets", {contract})
     return res as string[]
   }
-  const getContractOutputs = async (params: any) => {
+  const getContractLogs = async (params: any) => {
     const res = await daemonRef.current!.dataCall("get_contract_outputs", params)
     return res
   }
@@ -758,7 +761,7 @@ export const NodeProvider = ({ children }: { children: ReactNode }) => {
       getAsset,
       getAssetSupply,
       getAssets,
-      getContractOutputs,
+      getContractLogs,
       getContractData,
       getContractBalance,
       getContractModule,
