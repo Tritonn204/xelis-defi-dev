@@ -20,6 +20,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import { NATIVE_ASSET_HASH } from '@/contexts/NodeContext';
 
 const LS_KEY_BROWSER = 'proTradingView.browserCollapsed';
 const LS_KEY_MARKET = 'proTradingView.marketCollapsed';
@@ -63,8 +64,8 @@ export const ProTradingView: React.FC<TradingViewProps> = memo((props) => {
   }, [selectAsset]);
 
   const handleSelectAsset = useCallback((hash: string) => {
-    selectAsset('from', hash);
-    selectAsset('to', ''); // Clear the "to" selection
+    selectAsset('from', NATIVE_ASSET_HASH);
+    selectAsset('to', hash); // Clear the "to" selection
     setAmount('to', ''); // Clear the "to" amount
   }, [selectAsset, setAmount]);
 
