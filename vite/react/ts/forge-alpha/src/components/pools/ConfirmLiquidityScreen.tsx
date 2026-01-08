@@ -59,13 +59,16 @@ const ConfirmLiquidityScreen: React.FC<ConfirmLiquidityScreenProps> = ({
   let estimatedLpTokens: string
 
   if (pool) {
-    const poolLockedA = new Big(pool.locked[0] || 0)
-    const poolLockedB = new Big(pool.locked[1] || 0)
+    const idxA = pool.hashes[0] === token1Hash ? 0 : 1
+    const idxB = idxA === 0 ? 1 : 0
+
+    const poolLockedA = new Big(pool.locked[idxA] || 0)
+    const poolLockedB = new Big(pool.locked[idxB] || 0)
     const totalLPSupply = new Big(pool.totalLpSupply.toString())
 
-    const ratioA = tokenAAmountAtomic.div(poolLockedA || 1)
-    const ratioB = tokenBAmountAtomic.div(poolLockedB || 1)
-    const shareRatio = ratioA.lt(ratioB) ? ratioA : ratioB;
+    const ratioA = tokenAAmountAtomic.div(poolLockedA)
+    const ratioB = tokenBAmountAtomic.div(poolLockedB)
+    const shareRatio = ratioA.lt(ratioB) ? ratioA : ratioB
 
     const lpAmountAtomic = totalLPSupply.mul(shareRatio)
     estimatedLpTokens = lpAmountAtomic.div(1e8).toFixed(8)
