@@ -72,7 +72,7 @@ const Layout = ({ children }: any) => {
     { name: 'TRADE', path: '/trade' },
     { name: 'POOLS', path: '/pools' },
     { name: 'FORGE', path: '/forge' },
-    { name: 'VAULTS', path: '/vault' }
+    // { name: 'VAULTS', path: '/vault' }
   ]
 
   const isActive = (path: any) => {
@@ -282,9 +282,9 @@ const Layout = ({ children }: any) => {
                   {connecting ? 'Connecting...' : 'Connect'}
                 </Button>
               )}
-              <Button className="text-gray-300 hover:text-white rounded-full" onClick={()=>{}}>
+              {/* <Button className="text-gray-300 hover:text-white rounded-full" onClick={()=>{}}>
                 <Settings className="w-8 h-8" />
-              </Button>
+              </Button> */}
             </div>
           </div>
         </div>

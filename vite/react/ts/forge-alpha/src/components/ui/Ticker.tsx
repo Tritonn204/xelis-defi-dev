@@ -15,6 +15,7 @@ type TickerProps = {
   fillBuffer?: number;
   children: (index: number) => React.ReactNode;
   persistId?: string;
+  contentVersion: string | number;
 };
 
 type Seg = {
@@ -30,6 +31,7 @@ const Ticker: React.FC<TickerProps> = ({
   fillBuffer = 140,
   children,
   persistId,
+  contentVersion
 }) => {
   const registry = useTickerRegistry();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -42,6 +44,7 @@ const Ticker: React.FC<TickerProps> = ({
   ]);
 
   const [hydrated, setHydrated] = useState(() => !persistId);
+  const establishedSegs = useRef<Set<number>>(new Set());
 
   const segsRef = useRef<Seg[]>(renderSegs);
   const posRef = useRef<Map<number, number>>(new Map());
@@ -86,25 +89,106 @@ const Ticker: React.FC<TickerProps> = ({
     setHydrated(true);
   }, [persistId]);
 
+useEffect(() => {
+  if (!hydrated) return;
+
+  // content changed (loading -> real data, etc) => widths change => reflow
+  establishedSegs.current.clear();
+  widthRef.current = new Map();
+
+  // trigger layout effect to re-measure + re-position
+  setRenderSegs((prev) => [...prev]);
+
+  // optional: second pass for async icon/font/layout settling
+  const raf = requestAnimationFrame(() => {
+    establishedSegs.current.clear();
+    widthRef.current = new Map();
+    setRenderSegs((prev) => [...prev]);
+  });
+
+  return () => cancelAnimationFrame(raf);
+}, [hydrated, contentVersion]);
+
   useEffect(() => {
     segsRef.current = renderSegs;
   }, [renderSegs]);
 
   // sync transforms & cache widths after (re)render
   useLayoutEffect(() => {
+    // First pass: measure and cache widths
     for (const seg of renderSegs) {
       const handle = segHandles.current.get(seg.id) || null;
       if (!handle) continue;
       // measure/cached width
       const w = handle.getWidth() || handle.measureWidth() || seg.width || 0;
       widthRef.current.set(seg.id, w);
-      // apply current transform if known
+    }
+
+    // Second pass: fix position of NEW segments based on actual measured width
+    const newSegs = renderSegs.filter(seg => !establishedSegs.current.has(seg.id));
+
+    for (const newSeg of newSegs) {
+      const newW = widthRef.current.get(newSeg.id) ?? 0;
+
+      // Find the nearest established segment to properly space against
+      let nearestEstablished = null;
+      let nearestDistance = Infinity;
+
+      for (const seg of renderSegs) {
+        if (seg.id === newSeg.id || !establishedSegs.current.has(seg.id)) continue;
+
+        const estX = posRef.current.get(seg.id) ?? 0;
+        const newX = posRef.current.get(newSeg.id) ?? 0;
+        const distance = Math.abs(estX - newX);
+
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestEstablished = seg;
+        }
+      }
+
+      // Adjust position based on actual width relative to nearest established segment
+      if (nearestEstablished) {
+        const estX = posRef.current.get(nearestEstablished.id) ?? 0;
+        const estW = widthRef.current.get(nearestEstablished.id) ?? 0;
+        const newX = posRef.current.get(newSeg.id) ?? 0;
+
+        // If new segment is to the left of established
+        if (newX < estX) {
+          // Position it to be exactly loopGap to the left
+          const correctX = estX - loopGap - newW;
+          posRef.current.set(newSeg.id, correctX);
+        }
+        // If new segment is to the right of established
+        else {
+          // Position it to be exactly loopGap to the right
+          const correctX = estX + estW + loopGap;
+          posRef.current.set(newSeg.id, correctX);
+        }
+      }
+
+      // Mark this segment as established
+      establishedSegs.current.add(newSeg.id);
+    }
+
+    // Clean up removed segments from established set
+    const currentIds = new Set(renderSegs.map(s => s.id));
+    for (const id of establishedSegs.current) {
+      if (!currentIds.has(id)) {
+        establishedSegs.current.delete(id);
+      }
+    }
+
+    // Third pass: apply transforms
+    for (const seg of renderSegs) {
+      const handle = segHandles.current.get(seg.id) || null;
+      if (!handle) continue;
       const x = posRef.current.get(seg.id);
       if (x != null) {
         handle.setX(x);
       }
     }
-  }, [renderSegs]);
+  }, [renderSegs, loopGap]);
 
   const saveSnapshot = () => {
     if (!persistId || !registry) return;
@@ -308,25 +392,34 @@ const Ticker: React.FC<TickerProps> = ({
             shouldSpawn = true;
             spawnX = -(fillBuffer + guessW);
           } else {
-            const guessW = farLeftWidth || loopGap;
-            if (farLeft - guessW - loopGap > -fillBuffer - guessW) {
+            const guessW = 200; // Estimate max element width
+            const farRight = farLeft + farLeftWidth;
+
+            // Spawn when right edge of leftmost element is about to enter viewport
+            // This gives overlap correction time to position it off-screen
+            if (farRight > -guessW) {
               shouldSpawn = true;
-              const candidate = farLeft - loopGap - guessW;
-              const minOff = -(fillBuffer + guessW);
-              spawnX = Math.min(candidate, minOff);
+              // Position new element to the left with loopGap spacing
+              spawnX = farLeft - loopGap - guessW;
             }
           }
 
           if (shouldSpawn) {
-            const id = nextIdRef.current++;
-            const logical = backwardRef.current--;
-            posRef.current.set(id, spawnX);
-            widthRef.current.set(id, loopGap);
-            segsRef.current = [
-              ...segsRef.current,
-              { id, logical, width: 0 },
-            ];
-            needsSync = true;
+            // Allow 1 buffer element (logical -1) before beginning (logical 0) to prevent pop-in
+            // API crash prevention handled in parent component via index < 0 check
+            if (backwardRef.current < -1) {
+              // Don't spawn - we've reached the buffer limit
+            } else {
+              const id = nextIdRef.current++;
+              const logical = backwardRef.current--;
+              posRef.current.set(id, spawnX);
+              widthRef.current.set(id, loopGap);
+              segsRef.current = [
+                ...segsRef.current,
+                { id, logical, width: 0 },
+              ];
+              needsSync = true;
+            }
           }
         }
 
@@ -343,12 +436,23 @@ const Ticker: React.FC<TickerProps> = ({
 
     raf = requestAnimationFrame(tick);
 
+    const forceResync = () => {
+      establishedSegs.current.clear();
+      widthRef.current = new Map();
+      setRenderSegs([...segsRef.current]);
+    };
+
     const handleVis = () => {
       paused = document.hidden;
       if (paused) {
         saveSnapshot();
       } else {
         lastTime = null;
+
+        // wait 1 frame so layout/paint is real again
+        requestAnimationFrame(() => {
+          forceResync();
+        });
       }
     };
 

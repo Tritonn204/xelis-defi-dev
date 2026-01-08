@@ -1,7 +1,7 @@
 {
   "data": [
     {
-      "entry_id": 8,
+      "entry_id": 9,
       "name": "deploy_asset",
       "outputs": "u64",
       "params": [
@@ -34,7 +34,7 @@
       "type": "entry"
     },
     {
-      "entry_id": 9,
+      "entry_id": 10,
       "name": "mint",
       "outputs": "u64",
       "params": [
@@ -50,7 +50,7 @@
       "type": "entry"
     },
     {
-      "entry_id": 10,
+      "entry_id": 11,
       "name": "transfer_ownership",
       "outputs": "u64",
       "params": [
@@ -66,7 +66,7 @@
       "type": "entry"
     },
     {
-      "entry_id": 11,
+      "entry_id": 12,
       "name": "renounce_ownership",
       "outputs": "u64",
       "params": [
@@ -78,7 +78,7 @@
       "type": "entry"
     },
     {
-      "entry_id": 12,
+      "entry_id": 13,
       "name": "set_icon",
       "outputs": "u64",
       "params": [
@@ -94,7 +94,7 @@
       "type": "entry"
     },
     {
-      "entry_id": 13,
+      "entry_id": 14,
       "name": "set_fee",
       "outputs": "u64",
       "params": [
@@ -106,13 +106,49 @@
       "type": "entry"
     },
     {
-      "entry_id": 14,
+      "entry_id": 15,
       "name": "set_dao_contract",
       "outputs": "u64",
       "params": [
         {
           "name": "dao_hash",
           "type": "Hash"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 16,
+      "name": "set_dao_entry",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "dao_entry",
+          "type": "u16"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 17,
+      "name": "add_owner",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "new_owner",
+          "type": "Address"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 18,
+      "name": "remove_owner",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "owner_to_remove",
+          "type": "Address"
         }
       ],
       "type": "entry"

@@ -87,12 +87,60 @@
     },
     {
       "entry_id": 30,
-      "name": "update_launchpad",
+      "name": "add_launchpad",
       "outputs": "u64",
       "params": [
         {
           "name": "launchpad",
           "type": "Hash"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 31,
+      "name": "remove_launchpad",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "launchpad",
+          "type": "Hash"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 32,
+      "name": "remove_feeless_whitelist",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "contract_hash",
+          "type": "Hash"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 33,
+      "name": "add_owner",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "new_owner",
+          "type": "Address"
+        }
+      ],
+      "type": "entry"
+    },
+    {
+      "entry_id": 34,
+      "name": "remove_owner",
+      "outputs": "u64",
+      "params": [
+        {
+          "name": "owner_to_remove",
+          "type": "Address"
         }
       ],
       "type": "entry"

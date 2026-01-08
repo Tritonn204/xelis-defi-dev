@@ -7,6 +7,8 @@ import { showErrorToast, showSubmitToast } from '@/utils/toast'
 import { Hammer, Upload, Coins, Settings } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import GeometricAccents from '@/components/ui/GeometricAccents'
+import TokenCreationFeeModal from '@/components/modal/TokenCreationFeeModal'
+import LargeSupplyWarningModal from '@/components/modal/LargeSupplyWarningModal'
 
 import * as daemonTypes from '@xelis/sdk/daemon/types'
 
@@ -136,6 +138,12 @@ const Tools = () => {
   const [txHash, setTxHash] = useState('')
   const [waitingForConfirmation, setWaitingForConfirmation] = useState(false)
 
+  // Fee notification modal state
+  const [showFeeModal, setShowFeeModal] = useState(false)
+
+  // Large supply warning modal state
+  const [showLargeSupplyModal, setShowLargeSupplyModal] = useState(false)
+
   // Handle wallet disconnects - free up buttons
   useEffect(() => {
     if (!isConnected && isSubmitting) {
@@ -164,6 +172,63 @@ const Tools = () => {
     if (screen === SCREENS.FORM) {
       setWaitingForConfirmation(false)
     }
+  }
+
+  // Check if initial supply is large (>2M with decimals accounted for)
+  const isLargeSupply = () => {
+    const supply = createTokenForm.supply
+    if (!supply || Number.isNaN(Number(supply))) return false
+
+    const supplyAtomic = toBaseUnits(supply, createTokenForm.decimals)
+    const threshold = 5_000_000n * pow10(createTokenForm.decimals)
+
+    return supplyAtomic > threshold
+  }
+
+  // Handle create token button click with fee modal check
+  const handleCreateTokenClick = () => {
+    const hideFeeModal = localStorage.getItem('hideDisclaimer_token_creation_fee') === 'true'
+
+    if (hideFeeModal) {
+      // User has opted to not see the fee modal, check large supply next
+      checkLargeSupplyOrProceed()
+    } else {
+      // Show the fee modal first
+      setShowFeeModal(true)
+    }
+  }
+
+  // Check large supply and show warning if needed, or proceed to confirm
+  const checkLargeSupplyOrProceed = () => {
+    const hideLargeSupplyModal = localStorage.getItem('hideDisclaimer_large_supply_warning') === 'true'
+
+    if (!hideLargeSupplyModal && isLargeSupply()) {
+      setShowLargeSupplyModal(true)
+    } else {
+      goToScreen(SCREENS.CONFIRM)
+    }
+  }
+
+  // Handle fee modal confirmation
+  const handleFeeModalConfirm = () => {
+    setShowFeeModal(false)
+    checkLargeSupplyOrProceed()
+  }
+
+  // Handle fee modal cancellation
+  const handleFeeModalCancel = () => {
+    setShowFeeModal(false)
+  }
+
+  // Handle large supply modal confirmation
+  const handleLargeSupplyConfirm = () => {
+    setShowLargeSupplyModal(false)
+    goToScreen(SCREENS.CONFIRM)
+  }
+
+  // Handle large supply modal cancellation
+  const handleLargeSupplyCancel = () => {
+    setShowLargeSupplyModal(false)
   }
 
   const switchPanel = (panel: string) => {
@@ -603,7 +668,7 @@ const Tools = () => {
             </div>
 
             <Button
-              onClick={() => goToScreen(SCREENS.CONFIRM)}
+              onClick={handleCreateTokenClick}
               disabled={!createTokenForm.name || !createTokenForm.ticker || !createTokenForm.supply || !factoryContract}
               className="w-full bg-forge-orange hover:bg-forge-orange/90 disabled:bg-gray-600 text-white font-light text-[1.5rem] py-1 px-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:ring-2 ring-white hover:scale-[1.015] active:scale-[0.98]"
             >
@@ -927,9 +992,24 @@ const Tools = () => {
   )
 
   return (
-    <div className="flex justify-center items-center min-h-[75vh]">
-      <div className="background-transparent rounded-2xl p-5 w-full max-w-md">
-        <GeometricAccents
+    <>
+      <TokenCreationFeeModal
+        isOpen={showFeeModal}
+        onConfirm={handleFeeModalConfirm}
+        onCancel={handleFeeModalCancel}
+        storageKey="token_creation_fee"
+      />
+
+      <LargeSupplyWarningModal
+        isOpen={showLargeSupplyModal}
+        onConfirm={handleLargeSupplyConfirm}
+        onCancel={handleLargeSupplyCancel}
+        storageKey="large_supply_warning"
+      />
+
+      <div className="flex justify-center items-center min-h-[75vh]">
+        <div className="background-transparent rounded-2xl p-5 w-full max-w-md">
+          <GeometricAccents
           accentWidth={19}
           tipExtension={60}
           tipAngle={50}
@@ -997,6 +1077,7 @@ const Tools = () => {
         </GeometricAccents>
       </div>
     </div>
+    </>
   )
 }
 

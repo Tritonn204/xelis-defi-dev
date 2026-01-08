@@ -259,8 +259,22 @@ export const SimpleTradingView: React.FC<TradingViewProps> = ({
           height="3rem"
           loopGap={0}
           persistId="trending-ticker"
+          contentVersion={
+            sections.length === 0
+              ? "loading"
+              : `loaded:${sections.length}:${sections[0]?.type ?? ""}:${sections.at(-1)?.type ?? ""}`
+          }
         >
           {(index) => {
+            // Prevent API crashes from negative indices (FBO buffer)
+            if (index < 0) {
+              return (
+                <div className="inline-flex items-center h-full px-6">
+                  <span className="text-transparent select-none">BUFFER</span>
+                </div>
+              )
+            }
+
             // Use fallback array if sections not loaded
             const displaySections = sections.length > 0 ? sections : [
               { type: 'header' as const, label: 'LOADING' },

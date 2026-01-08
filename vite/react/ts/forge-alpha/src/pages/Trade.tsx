@@ -11,6 +11,7 @@ import { showSubmitToast } from '@/utils/toast'
 
 // Eager load lightweight components
 import { SimpleTradingView } from '@/components/trade/views/Simple'
+import TrackAssetBeforeSwapModal from '@/components/modal/TrackAssetBeforeSwapModal'
 
 // ✅ LAZY LOAD HEAVY COMPONENTS
 const ProTradingView = lazy(() => import('@/components/trade/views/Pro'))
@@ -45,7 +46,9 @@ const Trade = () => {
     connecting,
     buildTransaction,
     submitTransaction,
-    clearTxCache
+    clearTxCache,
+    ownedAssets,
+    trackAsset
   } = useWallet()
 
   const { activePools, routerContract, refreshPools, poolAssets } = usePools()
@@ -64,6 +67,11 @@ const Trade = () => {
   const [txHash, setTxHash] = useState('')
   const [error, setError] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
+
+  // Track asset modal state
+  const [showTrackAssetModal, setShowTrackAssetModal] = useState(false)
+  const [assetToTrack, setAssetToTrack] = useState<{ hash: string; symbol: string; name?: string } | null>(null)
+  const pendingSwapRef = useRef(false)
 
   // Track current screen state for transaction callbacks
   const isSwappingRef = useRef(false)
@@ -263,7 +271,13 @@ const Trade = () => {
     setLastEditedField(position)
   }, [setAmount])
 
-  const handleSwap = async () => {
+  // Check if an asset is tracked
+  const isAssetTracked = (assetHash: string) => {
+    return ownedAssets?.has(assetHash) ?? false
+  }
+
+  // Perform the actual swap
+  const performSwap = async () => {
     if (!isConnected) {
       openConnectModal()
       return
@@ -278,6 +292,7 @@ const Trade = () => {
     setError('')
     setShowSuccess(false)
     isSwappingRef.current = true
+    pendingSwapRef.current = false
 
     try {
       console.log('Swap details:', {
@@ -347,8 +362,63 @@ const Trade = () => {
     }
   }
 
-  const isSwapDisabled = !hasValidPool || 
-    !swapAmounts.from || 
+  // Handle track asset modal confirmation
+  const handleTrackAsset = async () => {
+    if (!assetToTrack) return
+
+    setShowTrackAssetModal(false)
+
+    try {
+      await trackAsset({ asset: assetToTrack.hash })
+    } catch (err) {
+      console.error('Failed to track asset:', err)
+    }
+
+    // Proceed with swap if it was pending
+    if (pendingSwapRef.current) {
+      performSwap()
+    }
+  }
+
+  // Handle skipping track asset
+  const handleSkipTrackAsset = () => {
+    setShowTrackAssetModal(false)
+    setAssetToTrack(null)
+
+    // Proceed with swap if it was pending
+    if (pendingSwapRef.current) {
+      performSwap()
+    }
+  }
+
+  // Main swap handler - checks for untracked 'to' asset first
+  const handleSwap = async () => {
+    if (!isConnected) {
+      openConnectModal()
+      return
+    }
+
+    // Check if 'to' asset is not tracked (from asset must be owned to swap)
+    const toTracked = isAssetTracked(selectedAssets.to)
+
+    if (!toTracked) {
+      // Ask to track 'to' asset
+      setAssetToTrack({
+        hash: selectedAssets.to,
+        symbol: toToken?.ticker || 'Unknown',
+        name: toToken?.name
+      })
+      setShowTrackAssetModal(true)
+      pendingSwapRef.current = true
+      return
+    }
+
+    // Asset is tracked, proceed with swap
+    performSwap()
+  }
+
+  const isSwapDisabled = !hasValidPool ||
+    !swapAmounts.from ||
     parseFloat(swapAmounts.from) <= 0 ||
     parseFloat(swapAmounts.from) > parseFloat(assets[fromToken?.hash || '']?.balance || '0') ||
     isSubmitting
@@ -448,6 +518,15 @@ const Trade = () => {
           />
         </Suspense>
       )}
+
+      {/* Track Asset Before Swap Modal */}
+      <TrackAssetBeforeSwapModal
+        isOpen={showTrackAssetModal}
+        onTrack={handleTrackAsset}
+        onSkip={handleSkipTrackAsset}
+        assetSymbol={assetToTrack?.symbol || ''}
+        assetName={assetToTrack?.name}
+      />
     </>
   )
 }

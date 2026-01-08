@@ -335,9 +335,10 @@ export const ProTradingView: React.FC<TradingViewProps> = memo((props) => {
           left: marketBtnPos.left,
           transform: 'translateX(-50%)',
         }}
+        disabled={true} // TODO
         focusOnClick={false}
       >
-        {isMarketDataCollapsed ? (
+        {/*isMarketDataCollapsed TEMPORARY*/ true ? (
           <ChevronUp className="w-8 h-8 text-forge-orange drop-shadow-[0_0_10px_var(--color-forge-orange)]/50" />
         ) : (
           <ChevronDown className="w-8 h-8 text-forge-orange drop-shadow-[0_0_10px_var(--color-forge-orange)]/90" />

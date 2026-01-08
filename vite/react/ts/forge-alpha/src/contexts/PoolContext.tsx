@@ -254,7 +254,7 @@ export const PoolProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoadingPools(true);
     setPoolsError(null);
 
-    const DEBUG = false;
+    const DEBUG = true;
     const dbg = (...args: any[]) => DEBUG && console.log("[loadPools]", ...args);
     const warn = (...args: any[]) => DEBUG && console.warn("[loadPools]", ...args);
 

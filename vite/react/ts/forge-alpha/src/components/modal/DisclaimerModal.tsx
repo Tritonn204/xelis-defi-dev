@@ -3,7 +3,8 @@ import Button from '../ui/Button';
 
 // Global keys for the tracking of "Do not show again" settings
 export const disclaimerKeys = {
-  trackAsset: 'track_asset'
+  trackAsset: 'track_asset',
+  tokenCreationFee: 'token_creation_fee'
 }
 
 interface DisclaimerModalProps {

@@ -8,6 +8,7 @@ type ScrollTickerProps = {
   children: (index: number) => React.ReactNode;
   /** forward to Ticker so it can persist X/logical state */
   persistId?: string;
+  contentVersion?: number | string;
 };
 
 type PointerSnap = { x: number; time: number };
@@ -19,7 +20,8 @@ const ScrollTicker: React.FC<ScrollTickerProps> = ({
   height = "3rem",
   loopGap = 40,
   children,
-  persistId, // 👈 new
+  persistId,
+  contentVersion,
 }) => {
   const [renderSpeed, setRenderSpeed] = useState(baseSpeed);
 
@@ -132,7 +134,8 @@ const ScrollTicker: React.FC<ScrollTickerProps> = ({
         speed={renderSpeed}
         height={height}
         loopGap={loopGap}
-        persistId={persistId} // 👈 pass through
+        persistId={persistId}
+        contentVersion={contentVersion} 
       >
         {children}
       </Ticker>
